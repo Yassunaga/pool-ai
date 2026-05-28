@@ -5,7 +5,7 @@ from django.conf import settings
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 
-from .nodes import ask_question, close_deal, extract_info, route_after_extract
+from .nodes import chatbot, extract_info
 from .state import ConversationState
 
 _graph = None
@@ -18,17 +18,10 @@ def _build_graph():
 
     workflow = StateGraph(ConversationState)
     workflow.add_node('extract_info', extract_info)
-    workflow.add_node('ask_question', ask_question)
-    workflow.add_node('close_deal', close_deal)
-
+    workflow.add_node('chatbot', chatbot)
     workflow.add_edge(START, 'extract_info')
-    workflow.add_conditional_edges(
-        'extract_info',
-        route_after_extract,
-        {'ask_question': 'ask_question', 'close_deal': 'close_deal'},
-    )
-    workflow.add_edge('ask_question', END)
-    workflow.add_edge('close_deal', END)
+    workflow.add_edge('extract_info', 'chatbot')
+    workflow.add_edge('chatbot', END)
 
     return workflow.compile(checkpointer=checkpointer)
 

@@ -1,12 +1,18 @@
-import json
-from typing import Literal
-
 from django.conf import settings
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
 
-from .prompts import CLOSER_SYSTEM_PROMPT, EXTRACTOR_SYSTEM_PROMPT, SELLER_SYSTEM_PROMPT
-from .state import REQUIRED_FIELDS, CollectedData, ConversationState
+from .prompts import EXTRACTOR_SYSTEM_PROMPT, SELLER_PROMPT
+from .state import REQUIRED_FIELDS, ConversationState
+
+
+class ExtractedData(BaseModel):
+    location: str | None = Field(None, description='cidade ou localização do poço')
+    depth: str | None = Field(None, description='profundidade estimada do poço')
+    purpose: str | None = Field(None, description='finalidade do poço')
+    flow_rate: str | None = Field(None, description='vazão desejada')
+    terrain: str | None = Field(None, description='tipo de terreno')
 
 
 def _llm(temperature: float = 0.3) -> ChatOpenAI:
@@ -17,77 +23,44 @@ def _llm(temperature: float = 0.3) -> ChatOpenAI:
     )
 
 
-def _missing_fields(collected: CollectedData) -> list[str]:
-    return [field for field in REQUIRED_FIELDS if not collected.get(field)]
-
-
-def _format_collected(collected: CollectedData) -> str:
-    if not collected:
-        return '(nothing yet)'
-    return '\n'.join(f'- {key}: {value}' for key, value in collected.items() if value)
-
-
-def _format_missing(missing: list[str]) -> str:
-    if not missing:
-        return '(none)'
-    return '\n'.join(f'- {field}' for field in missing)
-
-
-def extract_info(state: ConversationState) -> dict:
-    """Pull any newly-revealed lead fields out of the latest user message."""
+def get_last_user_message(state: ConversationState):
     last_user_message = next(
         (m for m in reversed(state['messages']) if isinstance(m, HumanMessage)),
         None,
     )
-    if last_user_message is None:
-        return {}
 
-    response = _llm(temperature=0.0).invoke([
-        SystemMessage(content=EXTRACTOR_SYSTEM_PROMPT),
-        HumanMessage(content=last_user_message.content),
-    ])
+    return last_user_message or {}
 
-    try:
-        parsed = json.loads(response.content)
-    except (json.JSONDecodeError, TypeError):
-        return {}
-
-    if not isinstance(parsed, dict):
-        return {}
-
-    current = dict(state.get('collected_data') or {})
-    for key in REQUIRED_FIELDS:
-        value = parsed.get(key)
-        if isinstance(value, str) and value.strip():
-            current[key] = value.strip()
-
-    return {'collected_data': current}
-
-
-def route_after_extract(state: ConversationState) -> Literal['ask_question', 'close_deal']:
-    return 'close_deal' if not _missing_fields(state.get('collected_data') or {}) else 'ask_question'
-
-
-def ask_question(state: ConversationState) -> dict:
-    collected = state.get('collected_data') or {}
-    missing = _missing_fields(collected)
-
-    system = SELLER_SYSTEM_PROMPT.format(
-        collected_summary=_format_collected(collected),
-        missing_summary=_format_missing(missing),
+def extract_info(state: ConversationState) -> dict:
+    llm = _llm(temperature=0.0).with_structured_output(ExtractedData)
+    result = llm.invoke(
+        [
+            SystemMessage(content=EXTRACTOR_SYSTEM_PROMPT),
+            *state['messages'],
+        ]
     )
 
-    response = _llm(temperature=0.5).invoke(
-        [SystemMessage(content=system), *state['messages']],
+    collected = dict(state.get('collected_data') or {})
+    for key, value in result.model_dump().items():
+        if value:
+            collected[key] = value
+
+    is_complete = all(collected.get(field) for field in REQUIRED_FIELDS)
+
+    return {
+        'collected_data': collected,
+        'is_complete': is_complete,
+    }
+
+
+def chatbot(state: ConversationState) -> dict:
+    response = _llm(temperature=0.0).invoke(
+        [
+            SystemMessage(content=SELLER_PROMPT),
+            *state['messages']
+        ]
     )
-    return {'messages': [AIMessage(content=response.content)], 'is_complete': False}
 
-
-def close_deal(state: ConversationState) -> dict:
-    collected = state.get('collected_data') or {}
-    system = CLOSER_SYSTEM_PROMPT.format(collected_summary=_format_collected(collected))
-
-    response = _llm(temperature=0.4).invoke(
-        [SystemMessage(content=system), *state['messages']],
-    )
-    return {'messages': [AIMessage(content=response.content)], 'is_complete': True}
+    return {
+        'messages': [AIMessage(content=response.content)],
+    }

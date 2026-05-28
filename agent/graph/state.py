@@ -3,18 +3,20 @@ from typing import Annotated, TypedDict
 from langgraph.graph.message import add_messages
 
 REQUIRED_FIELDS: tuple[str, ...] = (
-    'name',
-    'depth',
     'location',
-    'start_date',
+    'depth',
+    'purpose',
+    'flow_rate',
+    'terrain',
 )
 
 
 class CollectedData(TypedDict, total=False):
-    name: str | None
+    location: str | None
     depth: str | None
-    location : str | None
-    start_date: str | None
+    purpose: str | None
+    flow_rate: str | None
+    terrain: str | None
 
 
 class ConversationState(TypedDict):
