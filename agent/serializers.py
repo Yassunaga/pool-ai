@@ -8,3 +8,15 @@ class AgentSerializer(serializers.ModelSerializer):
         model = Agent
         fields = ['id', 'name', 'description', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class ChatRequestSerializer(serializers.Serializer):
+    session_id = serializers.CharField(max_length=255)
+    message = serializers.CharField()
+
+
+class ChatResponseSerializer(serializers.Serializer):
+    session_id = serializers.CharField()
+    reply = serializers.CharField()
+    collected_data = serializers.DictField()
+    is_complete = serializers.BooleanField()

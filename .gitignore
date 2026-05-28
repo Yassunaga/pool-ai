@@ -8,3 +8,12 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Env / secrets
+.env
+
+# Django
+db.sqlite3
+
+# LangGraph
+langgraph_state.sqlite
