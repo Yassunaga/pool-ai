@@ -51,7 +51,3 @@ class Command(BaseCommand):
                         f'  [state] {json.dumps(result["collected_data"], ensure_ascii=False)}'
                     )
                 )
-
-            if result['is_complete']:
-                self.stdout.write(self.style.SUCCESS('\nConversation complete.'))
-                return

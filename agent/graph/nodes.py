@@ -1,14 +1,11 @@
 from django.conf import settings
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-from langgraph.graph import END
 
-from .prompts import EXTRACTOR_SYSTEM_PROMPT, SELLER_PROMPT, WORKFLOW_CLASSIFIER_PROMPT
+from .prompts import EXTRACTOR_SYSTEM_PROMPT, SELLER_PROMPT
 from .models import (
     FIELD_LABELS, REQUIRED_FIELDS, CollectedData, ConversationState, ExtractedData,
-    WorkflowClassification,
 )
-from .workflow import FREE_FORM_STEP_ID, INITIAL_STEP_ID, WORKFLOW
 
 
 def _llm(temperature: float = 0.3) -> ChatOpenAI:
@@ -19,10 +16,15 @@ def _llm(temperature: float = 0.3) -> ChatOpenAI:
     )
 
 def router(state: ConversationState) -> str:
-    if state.get('is_greeted', False):
-        return 'chatbot'
+    if not state.get('is_greeted', False):
+        return 'greetings'
 
-    return 'greetings'
+    if step := state.get('workflow_step'):
+        return step
+
+    return 'chatbot'
+
+
 
 def greetings(state: ConversationState) -> dict:
     GREETING_MESSAGES: tuple[str, ...] = (

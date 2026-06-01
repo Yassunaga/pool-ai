@@ -7,7 +7,6 @@ from langgraph.graph import END, START, StateGraph
 
 from .nodes import (
     chatbot,
-    extract_info,
     greetings, router,
 )
 from .models import ConversationState
@@ -30,6 +29,8 @@ def _build_graph():
         router,
         {
             'greetings': 'greetings',
+            # 'rural': 'rural',
+            # 'urban': 'urban',
             'chatbot': 'chatbot',
         },
     )

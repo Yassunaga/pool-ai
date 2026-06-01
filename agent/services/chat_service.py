@@ -27,6 +27,5 @@ def send_message(session_id: str, message: str) -> dict:
         'session_id': session_id,
         'replies': replies,
         'collected_data': result.get('collected_data') or {},
-        'is_complete': bool(result.get('is_complete')),
         'workflow_step': result.get('workflow_step'),
     }
