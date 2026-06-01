@@ -5,8 +5,12 @@ from django.conf import settings
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 
-from .nodes import chatbot, extract_info
-from .state import ConversationState
+from .nodes import (
+    chatbot,
+    extract_info,
+    greetings, router,
+)
+from .models import ConversationState
 
 _graph = None
 _graph_lock = threading.Lock()
@@ -17,10 +21,19 @@ def _build_graph():
     checkpointer = SqliteSaver(conn)
 
     workflow = StateGraph(ConversationState)
-    workflow.add_node('extract_info', extract_info)
+    workflow.add_node('router', router)
+    workflow.add_node('greetings', greetings)
     workflow.add_node('chatbot', chatbot)
-    workflow.add_edge(START, 'extract_info')
-    workflow.add_edge('extract_info', 'chatbot')
+
+    workflow.add_conditional_edges(
+        START,
+        router,
+        {
+            'greetings': 'greetings',
+            'chatbot': 'chatbot',
+        },
+    )
+    workflow.add_edge('greetings', END)
     workflow.add_edge('chatbot', END)
 
     return workflow.compile(checkpointer=checkpointer)

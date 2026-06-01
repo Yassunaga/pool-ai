@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-0!-3+u*=$fz9zx(qujau83l+!l+ftwl-xw4vm422^uv&-g2#7e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'host.docker.internal']
 
 
 # Application definition
@@ -127,3 +127,15 @@ STATIC_URL = 'static/'
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
 LANGGRAPH_DB_PATH = str(BASE_DIR / 'langgraph_state.sqlite')
+
+# Evolution API (WhatsApp)
+EVOLUTION_API_URL = os.environ.get('EVOLUTION_API_URL', 'http://localhost:8080')
+EVOLUTION_API_KEY = os.environ.get('EVOLUTION_API_KEY', '')
+EVOLUTION_INSTANCE = os.environ.get('EVOLUTION_INSTANCE', 'Local')
+# Comma-separated allowlist of WhatsApp numbers the bot may reply to.
+# Leave empty to reply to anyone who sends a 1:1 message.
+EVOLUTION_ALLOWED_NUMBERS = [
+    n.strip()
+    for n in os.environ.get('EVOLUTION_ALLOWED_NUMBERS', '').split(',')
+    if n.strip()
+]

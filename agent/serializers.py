@@ -17,6 +17,7 @@ class ChatRequestSerializer(serializers.Serializer):
 
 class ChatResponseSerializer(serializers.Serializer):
     session_id = serializers.CharField()
-    reply = serializers.CharField()
+    replies = serializers.ListField(child=serializers.CharField())
     collected_data = serializers.DictField()
     is_complete = serializers.BooleanField()
+    workflow_step = serializers.CharField(allow_null=True, required=False)

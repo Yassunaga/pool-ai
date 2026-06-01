@@ -13,14 +13,20 @@ def send_message(session_id: str, message: str) -> dict:
         config=config,
     )
 
-    reply = next(
-        (m.content for m in reversed(result['messages']) if isinstance(m, AIMessage)),
-        '',
-    )
+    # Collect every AIMessage at the tail of the history — those are the
+    # replies emitted during this turn (possibly multiple).
+    replies: list[str] = []
+    for m in reversed(result['messages']):
+        if isinstance(m, AIMessage):
+            replies.append(m.content)
+        else:
+            break
+    replies.reverse()
 
     return {
         'session_id': session_id,
-        'reply': reply,
+        'replies': replies,
         'collected_data': result.get('collected_data') or {},
         'is_complete': bool(result.get('is_complete')),
+        'workflow_step': result.get('workflow_step'),
     }

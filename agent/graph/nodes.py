@@ -1,18 +1,14 @@
 from django.conf import settings
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
+from langgraph.graph import END
 
-from .prompts import EXTRACTOR_SYSTEM_PROMPT, SELLER_PROMPT
-from .state import REQUIRED_FIELDS, ConversationState
-
-
-class ExtractedData(BaseModel):
-    location: str | None = Field(None, description='cidade ou localização do poço')
-    depth: str | None = Field(None, description='profundidade estimada do poço')
-    purpose: str | None = Field(None, description='finalidade do poço')
-    flow_rate: str | None = Field(None, description='vazão desejada')
-    terrain: str | None = Field(None, description='tipo de terreno')
+from .prompts import EXTRACTOR_SYSTEM_PROMPT, SELLER_PROMPT, WORKFLOW_CLASSIFIER_PROMPT
+from .models import (
+    FIELD_LABELS, REQUIRED_FIELDS, CollectedData, ConversationState, ExtractedData,
+    WorkflowClassification,
+)
+from .workflow import FREE_FORM_STEP_ID, INITIAL_STEP_ID, WORKFLOW
 
 
 def _llm(temperature: float = 0.3) -> ChatOpenAI:
@@ -21,6 +17,24 @@ def _llm(temperature: float = 0.3) -> ChatOpenAI:
         api_key=settings.OPENAI_API_KEY,
         temperature=temperature,
     )
+
+def router(state: ConversationState) -> str:
+    if state.get('is_greeted', False):
+        return 'chatbot'
+
+    return 'greetings'
+
+def greetings(state: ConversationState) -> dict:
+    GREETING_MESSAGES: tuple[str, ...] = (
+        'Oi! Bem Vindo à Natural Engenharia! Empresa referência no segmento de perfuração de poços artesianos!',
+        'Vi que está interessado em ter seu próprio poço artesiano e não ter mais problemas para ter água! Esse é o caminho certo!',
+        'Para começar a te ajudar a não ter mais falta de água em nenhum momento, preciso saber: você vai querer um poço artesiano na cidade ou na área rural?',
+    )
+
+    return {
+        'messages': [AIMessage(content=message) for message in GREETING_MESSAGES],
+        'is_greeted': True,
+    }
 
 
 def get_last_user_message(state: ConversationState):
@@ -53,11 +67,34 @@ def extract_info(state: ConversationState) -> dict:
     }
 
 
+def _format_summaries(collected: CollectedData) -> tuple[str, str]:
+    collected_lines = []
+    missing_lines = []
+    for field in REQUIRED_FIELDS:
+        label = FIELD_LABELS[field]
+        value = collected.get(field)
+        if value:
+            collected_lines.append(f'- {label}: {value}')
+        else:
+            missing_lines.append(f'- {label}')
+
+    collected_summary = '\n'.join(collected_lines) or '- (nenhuma ainda)'
+    missing_summary = '\n'.join(missing_lines) or '- (todas coletadas)'
+    return collected_summary, missing_summary
+
+
 def chatbot(state: ConversationState) -> dict:
+    collected = state.get('collected_data') or {}
+    collected_summary, missing_summary = _format_summaries(collected)
+    prompt = SELLER_PROMPT.format(
+        collected_summary=collected_summary,
+        missing_summary=missing_summary,
+    )
+
     response = _llm(temperature=0.0).invoke(
         [
-            SystemMessage(content=SELLER_PROMPT),
-            *state['messages']
+            SystemMessage(content=prompt),
+            *state['messages'],
         ]
     )
 

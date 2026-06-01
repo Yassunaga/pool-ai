@@ -43,7 +43,7 @@ class Command(BaseCommand):
 
             result = send_message(session_id, user_input)
 
-            self.stdout.write(self.style.HTTP_INFO(f'bot> {result["reply"]}'))
+            self.stdout.write(self.style.HTTP_INFO(f'bot> {result["replies"]}'))
 
             if show_state:
                 self.stdout.write(

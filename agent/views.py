@@ -1,10 +1,17 @@
+import logging
+
+from django.conf import settings
 from rest_framework import status, viewsets
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Agent
 from .serializers import AgentSerializer, ChatRequestSerializer, ChatResponseSerializer
 from .services.chat_service import send_message
+from .services.evolution_service import send_text
+
+logger = logging.getLogger(__name__)
 
 
 class AgentViewSet(viewsets.ModelViewSet):
@@ -24,3 +31,55 @@ class ChatAPIView(APIView):
 
         response_serializer = ChatResponseSerializer(result)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+def _extract_text(message: dict) -> str | None:
+    """Pull the text body out of an Evolution message payload."""
+    return message.get('conversation') or (
+        message.get('extendedTextMessage') or {}
+    ).get('text')
+
+
+class EvolutionWebhookAPIView(APIView):
+    """Receive WhatsApp messages from Evolution, run the agent, reply back.
+
+    Always returns 200 so Evolution does not retry (which would re-run the
+    graph and double-reply). Failures are logged instead.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        payload = request.data or {}
+        print(payload)
+        if str(payload.get('event', '')).lower() != 'messages.upsert':
+            return Response(status=status.HTTP_200_OK)
+        data = payload.get('data') or {}
+        key = data.get('key') or {}
+
+        # Skip our own outgoing messages, groups, and status broadcasts.
+        if key.get('fromMe'):
+            return Response(status=status.HTTP_200_OK)
+
+        remote_jid = key.get('remoteJid') or ''
+        if remote_jid.endswith('@g.us') or remote_jid == 'status@broadcast':
+            return Response(status=status.HTTP_200_OK)
+
+        number = remote_jid.split('@', 1)[0]
+        if not number:
+            return Response(status=status.HTTP_200_OK)
+
+        # allowed = settings.EVOLUTION_ALLOWED_NUMBERS
+        # if allowed and number not in allowed:
+        #     return Response(status=status.HTTP_200_OK)
+
+        text = _extract_text(data.get('message') or {})
+        if not text:
+            return Response(status=status.HTTP_200_OK)
+
+        result = send_message(session_id=number, message=text)
+        for reply in result.get('replies') or []:
+            send_text(number, reply)
+
+        return Response(status=status.HTTP_200_OK)
