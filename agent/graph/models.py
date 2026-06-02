@@ -102,16 +102,6 @@ class UrbanFlowResponse(BaseModel):
     )
 
 
-class RuralFlowResponse(BaseModel):
-    """Continuação da conversa no caminho RURAL."""
-
-    chunks: list[str] = Field(
-        description='1 a 3 mensagens curtas continuando a conversa no contexto rural',
-        min_length=1,
-        max_length=3,
-    )
-
-
 class FaqResponse(BaseModel):
     """Resposta a uma dúvida do cliente, dividida em mensagens curtas."""
 

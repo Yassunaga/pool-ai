@@ -7,7 +7,7 @@ from .prompts import (
     EXTRACTOR_SYSTEM_PROMPT,
     FAQ_PROMPT,
     GREET_PROMPT,
-    RURAL_FLOW_PROMPT,
+    RURAL_FLOW_SCRIPT,
     SELLER_PROMPT,
     SUPERVISOR_PROMPT,
     URBAN_FLOW_PROMPT,
@@ -18,7 +18,6 @@ from .models import (
     ConversationState,
     FaqResponse,
     GreetResponse,
-    RuralFlowResponse,
     SupervisorRoute,
     UrbanFlowResponse,
 )
@@ -145,21 +144,24 @@ def urban_flow(state: ConversationState) -> dict:
 
 
 def rural_flow(state: ConversationState) -> dict:
-    """Continuação da conversa no caminho RURAL.
+    """Caminho RURAL — script sequencial em 2 turnos.
 
-    Confirma área no primeiro turn pós-extract e segue com perguntas /
-    considerações relevantes ao contexto rural (irrigação, gado, outorga).
+    Cada vez que o nó é chamado, emite o próximo turno do
+    `RURAL_FLOW_SCRIPT`. O passo é deduzido contando quantas vezes
+    'rural_flow' já apareceu em `state.skill_path`:
+      - 0 vezes (primeira chamada): turno 1 (posicionamento + geofísica)
+      - 1 vez:  turno 2 (valor estimado + convite a agendar)
+      - 2+ vezes: repete o último turno. O supervisor deveria rotear pra
+        schedule/handoff nesse ponto — mas garante que o nó é seguro.
+
+    Não chama LLM: o conteúdo é roteirizado pela equipe de vendas.
     """
-    llm = _llm(temperature=0.5).with_structured_output(RuralFlowResponse)
-    result = llm.invoke(
-        [
-            SystemMessage(content=RURAL_FLOW_PROMPT),
-            *state.messages,
-        ]
-    )
+    step_idx = state.skill_path.count('rural_flow')
+    last_idx = len(RURAL_FLOW_SCRIPT) - 1
+    turn_messages = RURAL_FLOW_SCRIPT[min(step_idx, last_idx)]
 
     return {
-        'messages': [AIMessage(content=chunk) for chunk in result.chunks],
+        'messages': [AIMessage(content=msg) for msg in turn_messages],
         'skill_path': ['rural_flow'],
     }
 

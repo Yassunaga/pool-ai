@@ -126,23 +126,24 @@ Diretrizes:
 """
 
 
-RURAL_FLOW_PROMPT = """Você é o agente da Natural Engenharia conversando com um cliente cujo poço será em ÁREA RURAL (sítio, fazenda, chácara, propriedade rural).
-
-Considerações típicas do caminho rural que você pode trazer naturalmente:
-- Espaço geralmente amplo, acesso da máquina costuma ser tranquilo (mas vale confirmar logística em propriedades distantes).
-- Finalidades comuns: irrigação, gado, agricultura, consumo residencial isolado.
-- Vazão necessária costuma ser maior (especialmente irrigação e pecuária).
-- Outorga estadual (em Goiás é a SEMAD) costuma ser obrigatória pra uso significativo.
-- Profundidade varia bastante por região; cerrado pode exigir entre 80m e 150m.
-
-Diretrizes:
-- Gere 1 a 3 mensagens curtas. Cada item da lista vira uma mensagem separada no WhatsApp.
-- IMPORTANTE: se essa é a primeira mensagem sua depois que descobrimos que é área rural (verifique no histórico — não há mensagem sua anterior falando de "área rural"), CONFIRME explicitamente em UMA mensagem curta antes de seguir. Ex.: "Entendi, então é zona rural, certo?" — isso evita seguir no caminho errado caso o extractor tenha interpretado mal.
-- Se você já confirmou em turnos anteriores, NÃO repita a confirmação. Apenas dê continuidade natural à conversa.
-- Continue a conversa de forma útil: faça UMA pergunta natural sobre algo que ajude a avançar (ex.: finalidade — irrigação? gado? consumo? — ou tamanho da propriedade) OU comente algo relevante do contexto rural.
-- Tom amigável, brasileiro, sem markdown, sem listas, sem despejar formulário.
-- NÃO mencione preço fechado em nenhuma hipótese. NÃO faça promessas técnicas.
-"""
+# Script sequencial do caminho rural — emitido em 2 turnos.
+# O nó `rural_flow` em nodes.py escolhe qual turno emitir contando
+# quantas vezes 'rural_flow' já apareceu em `state.skill_path`.
+# Se for chamado mais de 2 vezes, repete o último turno (último convite ao
+# agendamento) — supervisor deveria estar roteando pra schedule/handoff nesse
+# ponto.
+RURAL_FLOW_SCRIPT: tuple[tuple[str, ...], ...] = (
+    # Turno 1: posiciona o serviço e introduz geofísica.
+    (
+        'Poço artesiano rural é o primeiro passo para uma propriedade rural independente. Aqui aprendemos ao longo de várias experiência de clientes nossos que água é vida, e quando uma seca afeta a propriedade ou quando temos dificuldade de distribuir a água na propriedade, o poço é quem salva!',
+        'No campo, a gente sabe que o mais importante é a velocidade de entrega do poço, com uma profundidade certa e no melhor lugar para se perfurar! Por isso, além do serviço de perfuração, fornecemos o serviço de geofísica, aumentando MUITO as chances de você sempre perfurar onde vai ter mais água!',
+    ),
+    # Turno 2: faixa de valor + convite a agendar avaliação.
+    (
+        'Sobre valores, um poço no campo costuma ultrapassar o valor dos R$10.000,00. Entretanto, pesa muito a distância da cidade, o tipo de solo e a profundidade que esse poço vai ter. Por isso sempre recomendamos a geofísica, que será feita por um geólogo especialista, para encontrar o melhor local e a profundidade do seu poço artesiano!',
+        'Quer agendar uma avaliação para você ter uma propriedade rural cada vez mais tecnológica e que não dependa do clima que está cada dia mais instável?',
+    ),
+)
 
 
 FAQ_PROMPT = """Você é o agente da Natural Engenharia respondendo dúvidas sobre perfuração de poços artesianos via WhatsApp.
