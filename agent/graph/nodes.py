@@ -119,3 +119,30 @@ def faq(state: ConversationState) -> dict:
         'messages': [AIMessage(content=chunk) for chunk in result.chunks],
         'skill_path': ['faq'],
     }
+
+
+def fallback(state: ConversationState) -> dict:
+    """Catch-all temporário enquanto skills específicas não existem.
+
+    Atende qualquer intent que ainda não tem skill própria
+    (qualify, pricing, schedule, handoff, close). Usa o SELLER_PROMPT
+    como base. TODO: substituir por skills dedicadas, um intent por vez.
+    """
+    collected = state.get('collected_data') or {}
+    collected_summary, missing_summary = _format_summaries(collected)
+    prompt = SELLER_PROMPT.format(
+        collected_summary=collected_summary,
+        missing_summary=missing_summary,
+    )
+
+    response = _llm(temperature=0.3).invoke(
+        [
+            SystemMessage(content=prompt),
+            *state['messages'],
+        ]
+    )
+
+    return {
+        'messages': [AIMessage(content=response.content)],
+        'skill_path': ['fallback'],
+    }

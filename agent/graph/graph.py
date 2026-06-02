@@ -5,14 +5,31 @@ from django.conf import settings
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 
-from .nodes import (
-    chatbot,
-    greetings, router,
-)
 from .models import ConversationState
+from .nodes import fallback, faq, greet, supervisor
 
 _graph = None
 _graph_lock = threading.Lock()
+
+
+# Mapeamento intent → nó. Skills ainda não implementadas caem em 'fallback'.
+# Conforme novas skills forem criadas (qualify, pricing, schedule, handoff,
+# close), basta adicionar o nó em `_build_graph` e mapear aqui.
+_INTENT_TO_NODE: dict[str, str] = {
+    'greet': 'greet',
+    'faq': 'faq',
+    'qualify': 'fallback',
+    'pricing': 'fallback',
+    'schedule': 'fallback',
+    'handoff': 'fallback',
+    'close': 'fallback',
+}
+
+
+def _route_by_intent(state: ConversationState) -> str:
+    """Lê o intent gravado pelo supervisor e devolve o nome do nó destino."""
+    intent = state.get('intent')
+    return _INTENT_TO_NODE.get(intent or '', 'fallback')
 
 
 def _build_graph():
@@ -20,22 +37,29 @@ def _build_graph():
     checkpointer = SqliteSaver(conn)
 
     workflow = StateGraph(ConversationState)
-    workflow.add_node('router', router)
-    workflow.add_node('greetings', greetings)
-    workflow.add_node('chatbot', chatbot)
 
+    workflow.add_node('supervisor', supervisor)
+    workflow.add_node('greet', greet)
+    workflow.add_node('faq', faq)
+    workflow.add_node('fallback', fallback)
+
+    # Entrada única → supervisor sempre decide.
+    workflow.add_edge(START, 'supervisor')
+
+    # Supervisor escreve `intent` no state; o router lê e despacha.
     workflow.add_conditional_edges(
-        START,
-        router,
+        'supervisor',
+        _route_by_intent,
         {
-            'greetings': 'greetings',
-            # 'rural': 'rural',
-            # 'urban': 'urban',
-            'chatbot': 'chatbot',
+            'greet': 'greet',
+            'faq': 'faq',
+            'fallback': 'fallback',
         },
     )
-    workflow.add_edge('greetings', END)
-    workflow.add_edge('chatbot', END)
+
+    workflow.add_edge('greet', END)
+    workflow.add_edge('faq', END)
+    workflow.add_edge('fallback', END)
 
     return workflow.compile(checkpointer=checkpointer)
 

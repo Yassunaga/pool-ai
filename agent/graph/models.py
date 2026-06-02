@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 from langgraph.graph.message import add_messages
 
-from agent.graph.utils import _append_skill
+from agent.graph.reducers import append_skill
 
 LeadStage = Literal['novo', 'qualificando', 'qualificado', 'agendado', 'perdido']
 Intent = Literal['greet', 'qualify', 'faq', 'pricing', 'schedule', 'handoff', 'close']
@@ -41,7 +41,7 @@ class ConversationState(TypedDict):
     intent: Intent | None
     confidence_last_route: float | None
     lead_stage: LeadStage
-    skill_path: Annotated[list[str], _append_skill]
+    skill_path: Annotated[list[str], append_skill]
     turn_count: int
 
 class WorkflowClassification(BaseModel):

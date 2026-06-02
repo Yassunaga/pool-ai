@@ -31,11 +31,6 @@ _FAQ_CONTEXT_LABELS: dict[str, str] = {
 }
 
 
-def _append_skill(left: list[str] | None, right: list[str] | None) -> list[str]:
-    """Reducer para skill_path: concatena tolerando None de qualquer lado."""
-    return (left or []) + (right or [])
-
-
 def _format_collected_context(collected: CollectedData) -> str:
     """Versão narrativa do collected_data, para contextualizar o FAQ."""
     if not collected:
