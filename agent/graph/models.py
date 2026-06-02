@@ -1,4 +1,6 @@
-from typing import Annotated, Literal, TypedDict
+from dataclasses import dataclass
+from typing import Annotated, Literal
+
 from pydantic import BaseModel, Field
 
 from langgraph.graph.message import add_messages
@@ -22,40 +24,36 @@ FIELD_LABELS: dict[str, str] = {
 }
 
 
-class CollectedData(TypedDict, total=False):
-    location: str | None
-    location_type: str | None
-    depth: str | None
-    purpose: str | None
-    flow_rate: str | None
-    terrain: str | None
+class CollectedData(BaseModel):
+    """Dados estruturados do lead, extraídos da conversa ao longo do tempo."""
 
-
-class ConversationState(TypedDict):
-    is_greeted: bool
-    messages: Annotated[list, add_messages]
-    collected_data: CollectedData
-    workflow_step: str
-
-    # supervisor / skills (campos opcionais na prática — nós usam .get() ao ler)
-    intent: Intent | None
-    confidence_last_route: float | None
-    lead_stage: LeadStage
-    skill_path: Annotated[list[str], append_skill]
-    turn_count: int
-
-class WorkflowClassification(BaseModel):
-    is_answer: bool
-    captured_value: str | None = Field(None)
-    reply_messages: list[str]
-
-
-class ExtractedData(BaseModel):
     location: str | None = Field(None, description='cidade ou localização do poço')
     depth: str | None = Field(None, description='profundidade estimada do poço')
     purpose: str | None = Field(None, description='finalidade do poço')
     flow_rate: str | None = Field(None, description='vazão desejada')
     terrain: str | None = Field(None, description='tipo de terreno')
+
+
+class ConversationState(BaseModel):
+    """Estado completo de uma conversa do agente, persistido pelo checkpointer."""
+
+    is_greeted: bool = False
+    messages: Annotated[list, add_messages] = Field(default_factory=list)
+    collected_data: CollectedData = Field(default_factory=CollectedData)
+    workflow_step: str | None = None
+
+    # supervisor / skills
+    intent: Intent | None = None
+    confidence_last_route: float | None = None
+    lead_stage: LeadStage = 'novo'
+    skill_path: Annotated[list[str], append_skill] = Field(default_factory=list)
+    turn_count: int = 0
+
+
+class WorkflowClassification(BaseModel):
+    is_answer: bool
+    captured_value: str | None = Field(None)
+    reply_messages: list[str]
 
 
 class SupervisorRoute(BaseModel):

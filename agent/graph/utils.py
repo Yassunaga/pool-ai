@@ -10,7 +10,7 @@ def _format_summaries(collected: CollectedData) -> tuple[str, str]:
     missing_lines = []
     for field in REQUIRED_FIELDS:
         label = FIELD_LABELS[field]
-        value = collected.get(field)
+        value = getattr(collected, field, None)
         if value:
             collected_lines.append(f'- {label}: {value}')
         else:
@@ -23,7 +23,6 @@ def _format_summaries(collected: CollectedData) -> tuple[str, str]:
 
 _FAQ_CONTEXT_LABELS: dict[str, str] = {
     'location': 'localização',
-    'location_type': 'tipo de área (urbana/rural)',
     'depth': 'profundidade estimada',
     'purpose': 'finalidade',
     'flow_rate': 'vazão desejada',
@@ -33,12 +32,9 @@ _FAQ_CONTEXT_LABELS: dict[str, str] = {
 
 def _format_collected_context(collected: CollectedData) -> str:
     """Versão narrativa do collected_data, para contextualizar o FAQ."""
-    if not collected:
-        return '(o cliente ainda não forneceu informações específicas sobre o caso dele)'
-
     items = []
     for field, label in _FAQ_CONTEXT_LABELS.items():
-        value = collected.get(field)
+        value = getattr(collected, field, None)
         if value:
             items.append(f'{label}: {value}')
 

@@ -28,8 +28,7 @@ _INTENT_TO_NODE: dict[str, str] = {
 
 def _route_by_intent(state: ConversationState) -> str:
     """Lê o intent gravado pelo supervisor e devolve o nome do nó destino."""
-    intent = state.get('intent')
-    return _INTENT_TO_NODE.get(intent or '', 'fallback')
+    return _INTENT_TO_NODE.get(state.intent or '', 'fallback')
 
 
 def _build_graph():

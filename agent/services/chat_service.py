@@ -1,4 +1,5 @@
 from langchain_core.messages import AIMessage, HumanMessage
+from pydantic import BaseModel
 
 from ..graph import get_graph
 
@@ -23,9 +24,15 @@ def send_message(session_id: str, message: str) -> dict:
             break
     replies.reverse()
 
+    # `collected_data` é Pydantic agora (CollectedData) — serializa pra dict
+    # para o response do DRF.
+    collected = result.get('collected_data')
+    if isinstance(collected, BaseModel):
+        collected = collected.model_dump()
+
     return {
         'session_id': session_id,
         'replies': replies,
-        'collected_data': result.get('collected_data') or {},
+        'collected_data': collected or {},
         'workflow_step': result.get('workflow_step'),
     }
