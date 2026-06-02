@@ -95,34 +95,30 @@ Exemplos do tom desejado (não copie literalmente, use como referência de estil
 """
 
 
-ASK_AREA_PROMPT = """Você é o agente da Natural Engenharia. Você já cumprimentou o cliente e agora precisa descobrir uma informação essencial antes de seguir: o poço será em área urbana ou rural?
+# Script da pergunta de área — emitido em um único turno (2 mensagens).
+# Na primeira chamada do nó `ask_area`, ambas as mensagens são enviadas
+# (reconhecimento + pergunta direta urbano/rural). Se o nó for chamado
+# novamente (cliente respondeu algo ambíguo e o extractor não conseguiu
+# identificar a área), apenas a pergunta (última mensagem) é re-emitida.
+ASK_AREA_SCRIPT: tuple[str, ...] = (
+    'Que bom que está interessado em ter seu próprio poço artesiano e não ter mais problemas para ter água! Esse é o caminho certo!',
+    'Para começar a te ajudar a não ter mais falta de água em nenhum momento, preciso saber: você vai querer um poço artesiano na cidade ou na área rural?',
+)
 
-Diretrizes:
-- Gere 1 ou 2 mensagens curtas. Cada item da lista vira uma mensagem separada no WhatsApp.
-- A pergunta deve ser direta e natural, sem soar burocrática. Ex.: "Pra eu te ajudar melhor, o poço vai ser na cidade ou em área rural (tipo sítio, fazenda)?"
-- NÃO emende outras perguntas (não pergunte localização, finalidade, profundidade, etc.). Só área.
-- Se o cliente disse algo no turno anterior que merece reconhecimento (ex.: contou que tá com falta de água), você pode reconhecer rapidamente em UMA mensagem curta antes de fazer a pergunta.
-- Tom amigável, próximo, brasileiro. Sem markdown, sem listas, sem emojis em excesso.
-"""
 
-
-URBAN_FLOW_PROMPT = """Você é o agente da Natural Engenharia conversando com um cliente cujo poço será em ÁREA URBANA (cidade, bairro, condomínio, loteamento residencial).
-
-Considerações típicas do caminho urbano que você pode trazer naturalmente:
-- Acesso da máquina/sonda: em terrenos urbanos costuma ter espaço limitado, vizinhança próxima.
-- Profundidade média em zonas urbanas tende a ser maior (lençóis mais preservados ficam mais fundos).
-- Pode haver regulamentação municipal sobre captação de água subterrânea.
-- Finalidades comuns: consumo residencial, comercial pequeno, edifícios.
-- Outorga pode ser dispensada em alguns casos de uso doméstico.
-
-Diretrizes:
-- Gere 1 a 3 mensagens curtas. Cada item da lista vira uma mensagem separada no WhatsApp.
-- IMPORTANTE: se essa é a primeira mensagem sua depois que descobrimos que é área urbana (verifique no histórico — não há mensagem sua anterior falando de "área urbana"), CONFIRME explicitamente em UMA mensagem curta antes de seguir. Ex.: "Entendi, então é zona urbana, certo?" — isso evita seguir no caminho errado caso o extractor tenha interpretado mal.
-- Se você já confirmou em turnos anteriores, NÃO repita a confirmação. Apenas dê continuidade natural à conversa.
-- Continue a conversa de forma útil para o cliente: faça UMA pergunta natural sobre algo que ajude a avançar (ex.: finalidade, acesso ao terreno) OU comente algo relevante do contexto urbano.
-- Tom amigável, brasileiro, sem markdown, sem listas, sem despejar formulário.
-- NÃO mencione preço fechado em nenhuma hipótese. NÃO faça promessas técnicas.
-"""
+# Script do caminho urbano — emitido em um único turno (4 mensagens).
+# Na primeira chamada do nó `urban_flow`, todas as 4 mensagens são enviadas
+# (posicionamento, cuidado/limpeza, valores, convite a agendar). Se o nó
+# for chamado novamente (cliente respondeu algo neutro tipo "ok"), apenas
+# o convite a agendar (última mensagem) é re-emitido para evitar repetição.
+# O supervisor idealmente já estaria roteando pra schedule / handoff /
+# close nesse ponto.
+URBAN_FLOW_SCRIPT: tuple[str, ...] = (
+    'Poço na cidade é uma necessidade gigantesca para qualquer pessoa. Os valores da conta de água só sobem devido à inflação, fora o risco de faltar água a qualquer momento!',
+    'Na cidade, além da qualidade do nosso serviço na entrega de água, tomamos cuidado especial na limpeza do serviço, pois ninguém quer seu local de trabalho ou moradia bagunçado por uma prestação de serviços, né?!',
+    'Sobre valores, um poço em ambiente urbano costuma ultrapassar o valor de R$8.000,00, mas cada caso é um caso.',
+    'Quer agendar uma avaliação para tornarmos você livre de contas de água altas e/ou falta d\'água?',
+)
 
 
 # Script do caminho rural — emitido em um único turno (4 mensagens).

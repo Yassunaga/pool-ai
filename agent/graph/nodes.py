@@ -3,7 +3,7 @@ from langchain_core.messages import AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from .prompts import (
-    ASK_AREA_PROMPT,
+    ASK_AREA_SCRIPT,
     EXTRACTOR_SYSTEM_PROMPT,
     FAQ_PROMPT,
     GREET_PROMPT,
@@ -11,16 +11,14 @@ from .prompts import (
     RURAL_FLOW_SCRIPT,
     SELLER_PROMPT,
     SUPERVISOR_PROMPT,
-    URBAN_FLOW_PROMPT,
+    URBAN_FLOW_SCRIPT,
 )
 from .models import (
-    AskAreaResponse,
     CollectedData,
     ConversationState,
     FaqResponse,
     GreetResponse,
     SupervisorRoute,
-    UrbanFlowResponse,
 )
 from .utils import _format_collected_context, _format_summaries
 
@@ -109,37 +107,46 @@ def greet(state: ConversationState) -> dict:
 
 
 def ask_area(state: ConversationState) -> dict:
-    """Pergunta diretamente se o poço será em área urbana ou rural."""
-    llm = _llm(temperature=0.5).with_structured_output(AskAreaResponse)
-    result = llm.invoke(
-        [
-            SystemMessage(content=ASK_AREA_PROMPT),
-            *state.messages,
-        ]
-    )
+    """Pergunta direta urbano/rural — script em um único turno.
+
+    Primeira chamada: emite as duas mensagens do `ASK_AREA_SCRIPT`
+    (reconhecimento + pergunta). Chamadas subsequentes (cliente respondeu
+    algo ambíguo e o extractor seguiu sem identificar a área): emite apenas
+    a pergunta para evitar repetir o reconhecimento.
+
+    Não chama LLM: o conteúdo é roteirizado pela equipe de vendas.
+    """
+    already_ran = 'ask_area' in state.skill_path
+    if already_ran:
+        messages = [AIMessage(content=ASK_AREA_SCRIPT[-1])]
+    else:
+        messages = [AIMessage(content=msg) for msg in ASK_AREA_SCRIPT]
 
     return {
-        'messages': [AIMessage(content=chunk) for chunk in result.chunks],
+        'messages': messages,
         'skill_path': ['ask_area'],
     }
 
 
 def urban_flow(state: ConversationState) -> dict:
-    """Continuação da conversa no caminho URBANO.
+    """Caminho URBANO — script em um único turno.
 
-    Confirma área no primeiro turn pós-extract (mitiga hallucination do
-    extractor) e segue com perguntas/considerações relevantes ao contexto.
+    Primeira chamada: emite todas as mensagens do `URBAN_FLOW_SCRIPT`
+    de uma vez (posicionamento, cuidado/limpeza, valores, convite a
+    agendar). Chamadas subsequentes: emite apenas a última mensagem
+    (convite a agendar) — evita repetir todo o script caso o supervisor
+    volte aqui sem o cliente ter avançado.
+
+    Não chama LLM: o conteúdo é roteirizado pela equipe de vendas.
     """
-    llm = _llm(temperature=0.5).with_structured_output(UrbanFlowResponse)
-    result = llm.invoke(
-        [
-            SystemMessage(content=URBAN_FLOW_PROMPT),
-            *state.messages,
-        ]
-    )
+    already_ran = 'urban_flow' in state.skill_path
+    if already_ran:
+        messages = [AIMessage(content=URBAN_FLOW_SCRIPT[-1])]
+    else:
+        messages = [AIMessage(content=msg) for msg in URBAN_FLOW_SCRIPT]
 
     return {
-        'messages': [AIMessage(content=chunk) for chunk in result.chunks],
+        'messages': messages,
         'skill_path': ['urban_flow'],
     }
 

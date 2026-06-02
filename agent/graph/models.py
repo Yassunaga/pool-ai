@@ -82,26 +82,6 @@ class GreetResponse(BaseModel):
     )
 
 
-class AskAreaResponse(BaseModel):
-    """Pergunta direta sobre tipo de área (urbano ou rural)."""
-
-    chunks: list[str] = Field(
-        description='1 ou 2 mensagens curtas perguntando se o poço será em área urbana ou rural',
-        min_length=1,
-        max_length=2,
-    )
-
-
-class UrbanFlowResponse(BaseModel):
-    """Continuação da conversa no caminho URBANO."""
-
-    chunks: list[str] = Field(
-        description='1 a 3 mensagens curtas continuando a conversa no contexto urbano',
-        min_length=1,
-        max_length=3,
-    )
-
-
 class FaqResponse(BaseModel):
     """Resposta a uma dúvida do cliente, dividida em mensagens curtas."""
 
