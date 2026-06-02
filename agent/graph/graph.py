@@ -13,6 +13,7 @@ from .nodes import (
     fallback,
     faq,
     greet,
+    handoff,
     rural_flow,
     supervisor,
     urban_flow,
@@ -32,8 +33,8 @@ _INTENT_TO_NODE: dict[str, str] = {
     'rural_flow': 'rural_flow',
     'faq': 'faq',
     'pricing': 'fallback',
-    'schedule': 'fallback',
-    'handoff': 'fallback',
+    'schedule': 'handoff',
+    'handoff': 'handoff',
     'close': 'fallback',
 }
 
@@ -69,6 +70,7 @@ def _build_graph():
     workflow.add_node('urban_flow', urban_flow)
     workflow.add_node('rural_flow', rural_flow)
     workflow.add_node('faq', faq)
+    workflow.add_node('handoff', handoff)
     workflow.add_node('fallback', fallback)
 
     # Entrada condicional: extract só roda se ainda não temos area_type.
@@ -92,6 +94,7 @@ def _build_graph():
             'urban_flow': 'urban_flow',
             'rural_flow': 'rural_flow',
             'faq': 'faq',
+            'handoff': 'handoff',
             'fallback': 'fallback',
         },
     )
@@ -101,6 +104,7 @@ def _build_graph():
     workflow.add_edge('urban_flow', END)
     workflow.add_edge('rural_flow', END)
     workflow.add_edge('faq', END)
+    workflow.add_edge('handoff', END)
     workflow.add_edge('fallback', END)
 
     return workflow.compile(checkpointer=checkpointer)

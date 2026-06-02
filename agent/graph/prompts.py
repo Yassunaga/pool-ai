@@ -1,10 +1,8 @@
 SELLER_PROMPT = """Você é um especialista em vendas de serviços de furo de poço artesiano.
 
-Informações já coletadas (NÃO pergunte novamente, mesmo que a conversa tenha mudado de assunto):
-{collected_summary}
-
-Informações ainda faltando:
-{missing_summary}
+Regras inegociáveis (precedem qualquer outra instrução):
+* NUNCA cite valor numérico — nada de R$, faixa, "em torno de", taxa de visita/avaliação, parcelamento, desconto, juros. O custo depende de profundidade final, tipo de solo, acesso, logística e geofísica. Se o cliente perguntar preço, parcelamento ou taxa de visita, diga que precisa da avaliação do engenheiro no local antes de fechar qualquer orçamento — e PARE por aí, sem inventar números.
+* Nunca prometa prazo ou vazão exata. Use só faixas técnicas conhecidas ("normalmente entre X e Y dias", "depende do solo").
 
 Como agir:
 * Sua prioridade é responder de forma útil e natural ao que o cliente acabou de dizer.
@@ -18,6 +16,7 @@ Como agir:
 Estilo:
 * Responda no mesmo idioma e em linguagem parecida com a do cliente, para gerar conexão.
 * Tom amigável, natural e objetivo (1 a 3 frases curtas). Sem listas ou markdown.
+* Não use bordões corporativos ("estou à disposição", "qualquer coisa estamos aqui").
 * Não resuma o que já foi coletado."""
 
 
@@ -126,23 +125,17 @@ Diretrizes:
 """
 
 
-# Script sequencial do caminho rural — emitido em 2 turnos.
-# O nó `rural_flow` em nodes.py escolhe qual turno emitir contando
-# quantas vezes 'rural_flow' já apareceu em `state.skill_path`.
-# Se for chamado mais de 2 vezes, repete o último turno (último convite ao
-# agendamento) — supervisor deveria estar roteando pra schedule/handoff nesse
-# ponto.
-RURAL_FLOW_SCRIPT: tuple[tuple[str, ...], ...] = (
-    # Turno 1: posiciona o serviço e introduz geofísica.
-    (
-        'Poço artesiano rural é o primeiro passo para uma propriedade rural independente. Aqui aprendemos ao longo de várias experiência de clientes nossos que água é vida, e quando uma seca afeta a propriedade ou quando temos dificuldade de distribuir a água na propriedade, o poço é quem salva!',
-        'No campo, a gente sabe que o mais importante é a velocidade de entrega do poço, com uma profundidade certa e no melhor lugar para se perfurar! Por isso, além do serviço de perfuração, fornecemos o serviço de geofísica, aumentando MUITO as chances de você sempre perfurar onde vai ter mais água!',
-    ),
-    # Turno 2: faixa de valor + convite a agendar avaliação.
-    (
-        'Sobre valores, um poço no campo costuma ultrapassar o valor dos R$10.000,00. Entretanto, pesa muito a distância da cidade, o tipo de solo e a profundidade que esse poço vai ter. Por isso sempre recomendamos a geofísica, que será feita por um geólogo especialista, para encontrar o melhor local e a profundidade do seu poço artesiano!',
-        'Quer agendar uma avaliação para você ter uma propriedade rural cada vez mais tecnológica e que não dependa do clima que está cada dia mais instável?',
-    ),
+# Script do caminho rural — emitido em um único turno (4 mensagens).
+# Na primeira chamada do nó `rural_flow`, todas as 4 mensagens são enviadas.
+# Se o nó for chamado novamente (cliente respondeu algo neutro tipo "ok"),
+# apenas o convite a agendar (última mensagem) é re-emitido para evitar
+# repetição. O supervisor idealmente já estaria roteando pra schedule /
+# handoff / close nesse ponto.
+RURAL_FLOW_SCRIPT: tuple[str, ...] = (
+    'Poço artesiano rural é o primeiro passo para uma propriedade rural independente. Aqui aprendemos ao longo de várias experiência de clientes nossos que água é vida, e quando uma seca afeta a propriedade ou quando temos dificuldade de distribuir a água na propriedade, o poço é quem salva!',
+    'No campo, a gente sabe que o mais importante é a velocidade de entrega do poço, com uma profundidade certa e no melhor lugar para se perfurar! Por isso, além do serviço de perfuração, fornecemos o serviço de geofísica, aumentando MUITO as chances de você sempre perfurar onde vai ter mais água!',
+    'Sobre valores, um poço no campo costuma ultrapassar o valor dos R$10.000,00. Entretanto, pesa muito a distância da cidade, o tipo de solo e a profundidade que esse poço vai ter. Por isso sempre recomendamos a geofísica, que será feita por um geólogo especialista, para encontrar o melhor local e a profundidade do seu poço artesiano!',
+    'Quer agendar uma avaliação para você ter uma propriedade rural cada vez mais tecnológica e que não dependa do clima que está cada dia mais instável?',
 )
 
 
@@ -193,3 +186,13 @@ Como responder:
 - Se a pergunta envolver preço, NUNCA cite valor — diga que depende das variáveis e precisa de avaliação do engenheiro.
 - Se a pergunta estiver fora do escopo do conhecimento base, seja honesto: diga que o engenheiro pode avaliar melhor na visita técnica.
 - Use o mesmo idioma do cliente (provavelmente português brasileiro)."""
+
+
+# Mensagens scriptadas de handoff. Determinístico de propósito: handoff é o
+# sinal mais importante da conversa (cliente pediu humano), e qualquer
+# variação criativa do LLM aqui é risco. Após emitir, o nó marca
+# `lead_stage='qualificado'` e o supervisor deve passar pra equipe externa.
+HANDOFF_MESSAGES: tuple[str, ...] = (
+    'Beleza, vou te passar pro nosso especialista agora.',
+    'Ele assume essa conversa em instantes e dá sequência no atendimento — pode aguardar.',
+)

@@ -7,6 +7,7 @@ from .prompts import (
     EXTRACTOR_SYSTEM_PROMPT,
     FAQ_PROMPT,
     GREET_PROMPT,
+    HANDOFF_MESSAGES,
     RURAL_FLOW_SCRIPT,
     SELLER_PROMPT,
     SUPERVISOR_PROMPT,
@@ -144,25 +145,42 @@ def urban_flow(state: ConversationState) -> dict:
 
 
 def rural_flow(state: ConversationState) -> dict:
-    """Caminho RURAL — script sequencial em 2 turnos.
+    """Caminho RURAL — script em um único turno.
 
-    Cada vez que o nó é chamado, emite o próximo turno do
-    `RURAL_FLOW_SCRIPT`. O passo é deduzido contando quantas vezes
-    'rural_flow' já apareceu em `state.skill_path`:
-      - 0 vezes (primeira chamada): turno 1 (posicionamento + geofísica)
-      - 1 vez:  turno 2 (valor estimado + convite a agendar)
-      - 2+ vezes: repete o último turno. O supervisor deveria rotear pra
-        schedule/handoff nesse ponto — mas garante que o nó é seguro.
+    Primeira chamada: emite todas as mensagens do `RURAL_FLOW_SCRIPT`
+    de uma vez (posicionamento, geofísica, valores, convite a agendar).
+    Chamadas subsequentes: emite apenas a última mensagem (convite a
+    agendar) — evita repetir todo o script caso o supervisor volte aqui
+    sem o cliente ter avançado.
 
     Não chama LLM: o conteúdo é roteirizado pela equipe de vendas.
     """
-    step_idx = state.skill_path.count('rural_flow')
-    last_idx = len(RURAL_FLOW_SCRIPT) - 1
-    turn_messages = RURAL_FLOW_SCRIPT[min(step_idx, last_idx)]
+    already_ran = 'rural_flow' in state.skill_path
+    if already_ran:
+        messages = [AIMessage(content=RURAL_FLOW_SCRIPT[-1])]
+    else:
+        messages = [AIMessage(content=msg) for msg in RURAL_FLOW_SCRIPT]
 
     return {
-        'messages': [AIMessage(content=msg) for msg in turn_messages],
+        'messages': messages,
         'skill_path': ['rural_flow'],
+    }
+
+
+def handoff(state: ConversationState) -> dict:
+    """Passa o atendimento pra um humano — mensagens fixas.
+
+    Determinístico de propósito: handoff é o sinal mais crítico da conversa
+    (cliente pediu humano explicitamente ou supervisor identificou
+    frustração). Qualquer variação criativa do LLM aqui vira risco — ex.
+    prometer prazo de resposta que não vamos cumprir, ou puxar o cliente
+    de volta pra qualificação. Marca `lead_stage='qualificado'` pra equipe
+    externa identificar a fila.
+    """
+    return {
+        'messages': [AIMessage(content=msg) for msg in HANDOFF_MESSAGES],
+        'skill_path': ['handoff'],
+        'lead_stage': 'qualificado',
     }
 
 

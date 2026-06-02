@@ -34,4 +34,11 @@ def send_message(session_id: str, message: str) -> dict:
         'session_id': session_id,
         'replies': replies,
         'collected_data': collected or {},
+        'debug': {
+            'intent': result.get('intent'),
+            'confidence': result.get('confidence_last_route'),
+            'lead_stage': result.get('lead_stage'),
+            'is_greeted': result.get('is_greeted'),
+            'skill_path': result.get('skill_path') or [],
+        },
     }

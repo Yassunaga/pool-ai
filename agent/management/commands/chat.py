@@ -46,8 +46,13 @@ class Command(BaseCommand):
             self.stdout.write(self.style.HTTP_INFO(f'bot> {result["replies"]}'))
 
             if show_state:
+                debug = result.get('debug') or {}
+                state_snapshot = {
+                    'collected_data': result['collected_data'],
+                    **debug,
+                }
                 self.stdout.write(
                     self.style.WARNING(
-                        f'  [state] {json.dumps(result["collected_data"], ensure_ascii=False)}'
+                        f'  [state] {json.dumps(state_snapshot, ensure_ascii=False)}'
                     )
                 )
