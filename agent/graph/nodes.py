@@ -1,11 +1,23 @@
 from django.conf import settings
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from .prompts import EXTRACTOR_SYSTEM_PROMPT, SELLER_PROMPT
-from .models import (
-    FIELD_LABELS, REQUIRED_FIELDS, CollectedData, ConversationState, ExtractedData,
+from .prompts import (
+    EXTRACTOR_SYSTEM_PROMPT,
+    FAQ_PROMPT,
+    GREET_PROMPT,
+    SELLER_PROMPT,
+    SUPERVISOR_PROMPT,
 )
+from .models import (
+    REQUIRED_FIELDS,
+    ConversationState,
+    ExtractedData,
+    FaqResponse,
+    GreetResponse,
+    SupervisorRoute,
+)
+from .utils import _format_collected_context, _format_summaries
 
 
 def _llm(temperature: float = 0.3) -> ChatOpenAI:
@@ -15,37 +27,6 @@ def _llm(temperature: float = 0.3) -> ChatOpenAI:
         temperature=temperature,
     )
 
-def router(state: ConversationState) -> str:
-    if not state.get('is_greeted', False):
-        return 'greetings'
-
-    if step := state.get('workflow_step'):
-        return step
-
-    return 'chatbot'
-
-
-
-def greetings(state: ConversationState) -> dict:
-    GREETING_MESSAGES: tuple[str, ...] = (
-        'Oi! Bem Vindo à Natural Engenharia! Empresa referência no segmento de perfuração de poços artesianos!',
-        'Vi que está interessado em ter seu próprio poço artesiano e não ter mais problemas para ter água! Esse é o caminho certo!',
-        'Para começar a te ajudar a não ter mais falta de água em nenhum momento, preciso saber: você vai querer um poço artesiano na cidade ou na área rural?',
-    )
-
-    return {
-        'messages': [AIMessage(content=message) for message in GREETING_MESSAGES],
-        'is_greeted': True,
-    }
-
-
-def get_last_user_message(state: ConversationState):
-    last_user_message = next(
-        (m for m in reversed(state['messages']) if isinstance(m, HumanMessage)),
-        None,
-    )
-
-    return last_user_message or {}
 
 def extract_info(state: ConversationState) -> dict:
     llm = _llm(temperature=0.0).with_structured_output(ExtractedData)
@@ -69,37 +50,72 @@ def extract_info(state: ConversationState) -> dict:
     }
 
 
-def _format_summaries(collected: CollectedData) -> tuple[str, str]:
-    collected_lines = []
-    missing_lines = []
-    for field in REQUIRED_FIELDS:
-        label = FIELD_LABELS[field]
-        value = collected.get(field)
-        if value:
-            collected_lines.append(f'- {label}: {value}')
-        else:
-            missing_lines.append(f'- {label}')
+def supervisor(state: ConversationState) -> dict:
+    """Classifica a intenção do cliente e escolhe a próxima skill.
 
-    collected_summary = '\n'.join(collected_lines) or '- (nenhuma ainda)'
-    missing_summary = '\n'.join(missing_lines) or '- (todas coletadas)'
-    return collected_summary, missing_summary
-
-
-def chatbot(state: ConversationState) -> dict:
+    Não emite mensagem ao cliente — apenas grava `intent` e
+    `confidence_last_route` no state. O roteamento real acontece nas
+    `conditional_edges` do grafo, lendo `state['intent']`.
+    """
     collected = state.get('collected_data') or {}
     collected_summary, missing_summary = _format_summaries(collected)
-    prompt = SELLER_PROMPT.format(
-        collected_summary=collected_summary,
-        missing_summary=missing_summary,
-    )
 
-    response = _llm(temperature=0.0).invoke(
+    llm = _llm(temperature=0.0).with_structured_output(SupervisorRoute)
+    decision = llm.invoke(
         [
-            SystemMessage(content=prompt),
+            SystemMessage(content=SUPERVISOR_PROMPT.format(
+                is_greeted='sim' if state.get('is_greeted') else 'não',
+                collected_summary=collected_summary,
+                missing_summary=missing_summary,
+                lead_stage=state.get('lead_stage') or 'novo',
+            )),
             *state['messages'],
         ]
     )
 
     return {
-        'messages': [AIMessage(content=response.content)],
+        'intent': decision.skill,
+        'confidence_last_route': decision.confidence,
+    }
+
+
+def greet(state: ConversationState) -> dict:
+    """Saudação inicial — abre o terreno, NÃO qualifica ainda.
+
+    Gera 2-3 mensagens curtas via LLM (structured output) e marca o
+    lead como `qualificando` para o próximo turn.
+    """
+    llm = _llm(temperature=0.7).with_structured_output(GreetResponse)
+    result = llm.invoke([SystemMessage(content=GREET_PROMPT)])
+
+    return {
+        'messages': [AIMessage(content=chunk) for chunk in result.chunks],
+        'is_greeted': True,
+        'lead_stage': 'qualificando',
+        'skill_path': ['greet'],
+    }
+
+
+def faq(state: ConversationState) -> dict:
+    """Responde dúvidas técnicas/conceituais do cliente.
+
+    Sem RAG nesta versão — o conhecimento base está embutido no prompt.
+    Responde APENAS o que o cliente perguntou; não emenda qualificação.
+    """
+    collected = state.get('collected_data') or {}
+    collected_context = _format_collected_context(collected)
+
+    llm = _llm(temperature=0.3).with_structured_output(FaqResponse)
+    result = llm.invoke(
+        [
+            SystemMessage(content=FAQ_PROMPT.format(
+                collected_context=collected_context,
+            )),
+            *state['messages'],
+        ]
+    )
+
+    return {
+        'messages': [AIMessage(content=chunk) for chunk in result.chunks],
+        'skill_path': ['faq'],
     }
