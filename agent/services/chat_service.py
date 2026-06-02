@@ -34,5 +34,4 @@ def send_message(session_id: str, message: str) -> dict:
         'session_id': session_id,
         'replies': replies,
         'collected_data': collected or {},
-        'workflow_step': result.get('workflow_step'),
     }

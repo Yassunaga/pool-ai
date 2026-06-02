@@ -22,11 +22,7 @@ def _format_summaries(collected: CollectedData) -> tuple[str, str]:
 
 
 _FAQ_CONTEXT_LABELS: dict[str, str] = {
-    'location': 'localização',
-    'depth': 'profundidade estimada',
-    'purpose': 'finalidade',
-    'flow_rate': 'vazão desejada',
-    'terrain': 'tipo de terreno',
+    'area_type': 'tipo de área (urbano ou rural)',
 }
 
 

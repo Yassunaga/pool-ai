@@ -7,31 +7,42 @@ from langgraph.graph.message import add_messages
 
 from agent.graph.reducers import append_skill
 
+
+AreaType = Literal['urbano', 'rural']
+
 LeadStage = Literal['novo', 'qualificando', 'qualificado', 'agendado', 'perdido']
-Intent = Literal['greet', 'qualify', 'faq', 'pricing', 'schedule', 'handoff', 'close']
+
+Intent = Literal[
+    'greet',
+    'ask_area',
+    'urban_flow',
+    'rural_flow',
+    'faq',
+    'pricing',
+    'schedule',
+    'handoff',
+    'close',
+]
 
 
-REQUIRED_FIELDS: tuple[str, ...] = (
-    'location',
-    'depth',
-    'purpose',
-)
+REQUIRED_FIELDS: tuple[str, ...] = ('area_type',)
 
 FIELD_LABELS: dict[str, str] = {
-    'location': 'cidade ou localização',
-    'depth': 'profundidade estimada',
-    'purpose': 'finalidade do poço',
+    'area_type': 'tipo de área (urbano ou rural)',
 }
 
 
 class CollectedData(BaseModel):
-    """Dados estruturados do lead, extraídos da conversa ao longo do tempo."""
+    """Dados estruturados do lead, extraídos da conversa.
 
-    location: str | None = Field(None, description='cidade ou localização do poço')
-    depth: str | None = Field(None, description='profundidade estimada do poço')
-    purpose: str | None = Field(None, description='finalidade do poço')
-    flow_rate: str | None = Field(None, description='vazão desejada')
-    terrain: str | None = Field(None, description='tipo de terreno')
+    Nesta fase do produto coletamos apenas `area_type` — todo o resto da
+    conversa diverge a partir desse dado.
+    """
+
+    area_type: AreaType | None = Field(
+        None,
+        description='tipo de área do poço: "urbano" (cidade, bairro, condomínio) ou "rural" (sítio, fazenda, chácara, propriedade rural)',
+    )
 
 
 class ConversationState(BaseModel):
@@ -40,7 +51,6 @@ class ConversationState(BaseModel):
     is_greeted: bool = False
     messages: Annotated[list, add_messages] = Field(default_factory=list)
     collected_data: CollectedData = Field(default_factory=CollectedData)
-    workflow_step: str | None = None
 
     # supervisor / skills
     intent: Intent | None = None
@@ -48,12 +58,6 @@ class ConversationState(BaseModel):
     lead_stage: LeadStage = 'novo'
     skill_path: Annotated[list[str], append_skill] = Field(default_factory=list)
     turn_count: int = 0
-
-
-class WorkflowClassification(BaseModel):
-    is_answer: bool
-    captured_value: str | None = Field(None)
-    reply_messages: list[str]
 
 
 class SupervisorRoute(BaseModel):
@@ -74,6 +78,36 @@ class GreetResponse(BaseModel):
     chunks: list[str] = Field(
         description='2 ou 3 mensagens curtas para enviar separadamente no WhatsApp',
         min_length=2,
+        max_length=3,
+    )
+
+
+class AskAreaResponse(BaseModel):
+    """Pergunta direta sobre tipo de área (urbano ou rural)."""
+
+    chunks: list[str] = Field(
+        description='1 ou 2 mensagens curtas perguntando se o poço será em área urbana ou rural',
+        min_length=1,
+        max_length=2,
+    )
+
+
+class UrbanFlowResponse(BaseModel):
+    """Continuação da conversa no caminho URBANO."""
+
+    chunks: list[str] = Field(
+        description='1 a 3 mensagens curtas continuando a conversa no contexto urbano',
+        min_length=1,
+        max_length=3,
+    )
+
+
+class RuralFlowResponse(BaseModel):
+    """Continuação da conversa no caminho RURAL."""
+
+    chunks: list[str] = Field(
+        description='1 a 3 mensagens curtas continuando a conversa no contexto rural',
+        min_length=1,
         max_length=3,
     )
 
