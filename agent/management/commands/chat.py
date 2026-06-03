@@ -1,4 +1,3 @@
-import json
 import uuid
 
 from django.core.management.base import BaseCommand
@@ -16,15 +15,9 @@ class Command(BaseCommand):
             default=None,
             help='Conversation thread id. Defaults to a new uuid (fresh conversation).',
         )
-        parser.add_argument(
-            '--show-state',
-            action='store_true',
-            help='Print collected_data after each turn.',
-        )
 
     def handle(self, *args, **options):
         session_id = options['session_id'] or f'cli-{uuid.uuid4().hex[:8]}'
-        show_state = options['show_state']
         graph = get_graph()
         self.stdout.write(graph.get_graph().draw_mermaid())
         self.stdout.write(self.style.SUCCESS(f'Session: {session_id}'))
@@ -44,17 +37,4 @@ class Command(BaseCommand):
                 return
 
             result = send_message(session_id, user_input)
-
             self.stdout.write(self.style.HTTP_INFO(f'bot> {result["replies"]}'))
-
-            if show_state:
-                debug = result.get('debug') or {}
-                state_snapshot = {
-                    'collected_data': result['collected_data'],
-                    **debug,
-                }
-                self.stdout.write(
-                    self.style.WARNING(
-                        f'  [state] {json.dumps(state_snapshot, ensure_ascii=False)}'
-                    )
-                )

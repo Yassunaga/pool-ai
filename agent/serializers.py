@@ -18,4 +18,3 @@ class ChatRequestSerializer(serializers.Serializer):
 class ChatResponseSerializer(serializers.Serializer):
     session_id = serializers.CharField()
     replies = serializers.ListField(child=serializers.CharField())
-    collected_data = serializers.DictField()

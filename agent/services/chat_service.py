@@ -1,5 +1,4 @@
 from langchain_core.messages import AIMessage, HumanMessage
-from pydantic import BaseModel
 
 from ..graph import get_graph
 
@@ -14,8 +13,6 @@ def send_message(session_id: str, message: str) -> dict:
         config=config,
     )
 
-    # Collect every AIMessage at the tail of the history — those are the
-    # replies emitted during this turn (possibly multiple).
     replies: list[str] = []
     for m in reversed(result['messages']):
         if isinstance(m, AIMessage):
@@ -24,21 +21,7 @@ def send_message(session_id: str, message: str) -> dict:
             break
     replies.reverse()
 
-    # `collected_data` é Pydantic agora (CollectedData) — serializa pra dict
-    # para o response do DRF.
-    collected = result.get('collected_data')
-    if isinstance(collected, BaseModel):
-        collected = collected.model_dump()
-
     return {
         'session_id': session_id,
         'replies': replies,
-        'collected_data': collected or {},
-        'debug': {
-            'intent': result.get('intent'),
-            'confidence': result.get('confidence_last_route'),
-            'lead_stage': result.get('lead_stage'),
-            'is_greeted': result.get('is_greeted'),
-            'skill_path': result.get('skill_path') or [],
-        },
     }
