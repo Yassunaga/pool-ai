@@ -123,9 +123,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-# LangGraph / LLM
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
-OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
+# LangGraph / LLM (OpenRouter)
+OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
+OPENROUTER_BASE_URL = os.environ.get('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1')
+OPENROUTER_MODEL = os.environ.get('OPENROUTER_MODEL', 'anthropic/claude-sonnet-4-6')
 LANGGRAPH_DB_PATH = str(BASE_DIR / 'langgraph_state.sqlite')
 
 # Evolution API (WhatsApp)

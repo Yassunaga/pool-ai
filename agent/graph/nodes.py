@@ -1,15 +1,15 @@
 from django.conf import settings
 from langchain_core.messages import AIMessage, SystemMessage
-from langchain_openai import ChatOpenAI
+from langchain_openrouter import ChatOpenRouter
 
 from .models import ConversationState
 from .prompts import SELLER_PROMPT
 
 
-def _llm(temperature: float = 0.3) -> ChatOpenAI:
-    return ChatOpenAI(
-        model=settings.OPENAI_MODEL,
-        api_key=settings.OPENAI_API_KEY,
+def _llm(temperature: float = 0.3) -> ChatOpenRouter:
+    return ChatOpenRouter(
+        model=settings.OPENROUTER_MODEL,
+        openrouter_api_key=settings.OPENROUTER_API_KEY,
         temperature=temperature,
     )
 
