@@ -14,6 +14,7 @@ from .nodes import (
     faq,
     greet,
     handoff,
+    off_topic,
     rural_flow,
     supervisor,
     urban_flow,
@@ -36,11 +37,14 @@ _INTENT_TO_NODE: dict[str, str] = {
     'schedule': 'handoff',
     'handoff': 'handoff',
     'close': 'fallback',
+    'off_topic': 'off_topic',
 }
 
 
 def _route_from_start(state: ConversationState) -> str:
     """Roteia da entrada do grafo: pula extract se já temos area_type."""
+    # if state.lead_stage == 'qualificado':
+    #     return 'end'
     if state.collected_data.area_type is None:
         return 'extract'
     return 'supervisor'
@@ -71,6 +75,7 @@ def _build_graph():
     workflow.add_node('rural_flow', rural_flow)
     workflow.add_node('faq', faq)
     workflow.add_node('handoff', handoff)
+    workflow.add_node('off_topic', off_topic)
     workflow.add_node('fallback', fallback)
 
     # Entrada condicional: extract só roda se ainda não temos area_type.
@@ -78,6 +83,7 @@ def _build_graph():
         START,
         _route_from_start,
         {
+            'end': END,
             'extract': 'extract',
             'supervisor': 'supervisor',
         },
@@ -95,6 +101,7 @@ def _build_graph():
             'rural_flow': 'rural_flow',
             'faq': 'faq',
             'handoff': 'handoff',
+            'off_topic': 'off_topic',
             'fallback': 'fallback',
         },
     )
@@ -105,6 +112,7 @@ def _build_graph():
     workflow.add_edge('rural_flow', END)
     workflow.add_edge('faq', END)
     workflow.add_edge('handoff', END)
+    workflow.add_edge('off_topic', END)
     workflow.add_edge('fallback', END)
 
     return workflow.compile(checkpointer=checkpointer)

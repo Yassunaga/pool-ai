@@ -22,6 +22,7 @@ Intent = Literal[
     'schedule',
     'handoff',
     'close',
+    'off_topic',
 ]
 
 
@@ -41,7 +42,7 @@ class CollectedData(BaseModel):
 
     area_type: AreaType | None = Field(
         None,
-        description='tipo de área do poço: "urbano" (cidade, bairro, condomínio) ou "rural" (sítio, fazenda, chácara, propriedade rural)',
+        description='tipo de área onde o poço será perfurado. null quando ainda não há sinal claro de área + interesse no serviço.',
     )
 
 
@@ -89,4 +90,14 @@ class FaqResponse(BaseModel):
         description='1 a 3 mensagens curtas respondendo à dúvida do cliente',
         min_length=1,
         max_length=3,
+    )
+
+
+class OffTopicResponse(BaseModel):
+    """Resposta a uma mensagem fora do escopo, dividida em mensagens curtas."""
+
+    chunks: list[str] = Field(
+        description='1 ou 2 mensagens curtas reconhecendo e redirecionando gentilmente',
+        min_length=1,
+        max_length=2,
     )

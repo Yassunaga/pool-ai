@@ -40,13 +40,6 @@ This is a Django + DRF backend wrapping a **LangGraph** conversational sales age
 - `db.sqlite3` — Django ORM (just the `Agent` model in `agent/models.py`).
 - `langgraph_state.sqlite` — LangGraph thread checkpointer, opened directly via `sqlite3.connect(settings.LANGGRAPH_DB_PATH)` in `agent/graph/graph.py`. This is where per-`session_id` conversation state lives (messages, `collected_data`, `is_greeted`, `workflow_step`). Path is set in `config/settings.py` as `LANGGRAPH_DB_PATH`.
 
-### Graph structure (`agent/graph/`)
-
-- `graph.py` — `get_graph()` returns a lazy, thread-safe singleton compiled `StateGraph`. The compiled graph is cached in module state; the SQLite connection is `check_same_thread=False`. Edges: `START → router → {greetings | chatbot} → END`. `router` is registered both as a node and as the conditional-edge function from `START`.
-- `nodes.py` — Node implementations. `router` decides between `greetings` (first turn) and `chatbot` (everything else, eventually `workflow_step`-driven). `chatbot` injects `SELLER_PROMPT` formatted with collected/missing field summaries; `extract_info` uses `ExtractedData` structured output to pull fields from message history. All LLM calls go through `_llm()` which reads `OPENAI_MODEL`/`OPENAI_API_KEY` from Django settings.
-- `models.py` — `ConversationState` (TypedDict, the graph state), `CollectedData`, `ExtractedData` (Pydantic, for structured LLM output), and `REQUIRED_FIELDS = ('location', 'depth', 'purpose')`. Also defines a `WorkflowStep` dataclass + `WORKFLOW` dict — scaffolding for a scripted-questions flow that isn't fully wired into the graph yet.
-- `prompts.py` — All Portuguese system prompts (`SELLER_PROMPT`, `EXTRACTOR_SYSTEM_PROMPT`, `WORKFLOW_CLASSIFIER_PROMPT`).
-
 ### Request → graph flow
 
 Both entry points funnel through `agent/services/chat_service.py::send_message(session_id, message)`, which calls `graph.invoke(...)` with `config={'configurable': {'thread_id': session_id}}` and then collects the **tail run of `AIMessage`s** from the result as `replies` (a single turn can emit multiple messages, as the `greetings` node does).

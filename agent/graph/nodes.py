@@ -8,9 +8,11 @@ from .prompts import (
     FAQ_PROMPT,
     GREET_PROMPT,
     HANDOFF_MESSAGES,
+    OFF_TOPIC_PROMPT,
     RURAL_FLOW_SCRIPT,
     SELLER_PROMPT,
     SUPERVISOR_PROMPT,
+    URBAN_CONFIRMATION_MESSAGE,
     URBAN_FLOW_SCRIPT,
 )
 from .models import (
@@ -18,6 +20,7 @@ from .models import (
     ConversationState,
     FaqResponse,
     GreetResponse,
+    OffTopicResponse,
     SupervisorRoute,
 )
 from .utils import _format_collected_context, _format_summaries
@@ -75,6 +78,8 @@ def supervisor(state: ConversationState) -> dict:
             'confidence_last_route': 1.0,
         }
 
+    handoff_done = 'handoff' in state.skill_path
+
     llm = _llm(temperature=0.0).with_structured_output(SupervisorRoute)
     decision = llm.invoke(
         [
@@ -82,10 +87,15 @@ def supervisor(state: ConversationState) -> dict:
                 is_greeted='sim',
                 area_type=state.collected_data.area_type or 'ainda não identificado',
                 lead_stage=state.lead_stage,
+                handoff_done='sim' if handoff_done else 'não',
             )),
             *state.messages,
         ]
     )
+
+    # Safety net: never re-trigger handoff once it already happened.
+    if handoff_done and decision.skill in ('handoff', 'schedule'):
+        decision.skill = 'faq'
 
     return {
         'intent': decision.skill,
@@ -129,21 +139,31 @@ def ask_area(state: ConversationState) -> dict:
 
 
 def urban_flow(state: ConversationState) -> dict:
-    """Caminho URBANO — script em um único turno.
+    """Caminho URBANO — script em estados (confirma → pitch → CTA).
 
-    Primeira chamada: emite todas as mensagens do `URBAN_FLOW_SCRIPT`
-    de uma vez (posicionamento, cuidado/limpeza, valores, convite a
-    agendar). Chamadas subsequentes: emite apenas a última mensagem
-    (convite a agendar) — evita repetir todo o script caso o supervisor
-    volte aqui sem o cliente ter avançado.
+    A 1ª execução emite a `URBAN_CONFIRMATION_MESSAGE` como safety-net
+    contra erro do extractor — se ele acertou, o cliente confirma; se
+    errou, corrige aqui antes da gente despejar o pitch completo.
+
+    Exceção: se o cliente JÁ passou por `ask_area` (respondeu "urbano"
+    explicitamente), a confirmação é redundante e a 1ª execução já emite
+    o pitch direto.
+
+    Execuções subsequentes ao pitch: re-emite apenas a última mensagem
+    (CTA) — evita repetir todo o script caso o supervisor volte aqui
+    sem o cliente ter avançado.
 
     Não chama LLM: o conteúdo é roteirizado pela equipe de vendas.
     """
-    already_ran = 'urban_flow' in state.skill_path
-    if already_ran:
-        messages = [AIMessage(content=URBAN_FLOW_SCRIPT[-1])]
-    else:
+    urban_runs = state.skill_path.count('urban_flow')
+    needs_confirmation = 'ask_area' not in state.skill_path
+
+    if needs_confirmation and urban_runs == 0:
+        messages = [AIMessage(content=URBAN_CONFIRMATION_MESSAGE)]
+    elif (needs_confirmation and urban_runs == 1) or (not needs_confirmation and urban_runs == 0):
         messages = [AIMessage(content=msg) for msg in URBAN_FLOW_SCRIPT]
+    else:
+        messages = [AIMessage(content=URBAN_FLOW_SCRIPT[-1])]
 
     return {
         'messages': messages,
@@ -212,6 +232,22 @@ def faq(state: ConversationState) -> dict:
     return {
         'messages': [AIMessage(content=chunk) for chunk in result.chunks],
         'skill_path': ['faq'],
+    }
+
+
+def off_topic(state: ConversationState) -> dict:
+    """Lida com mensagens fora do escopo — reconhece e redireciona ao assunto principal."""
+    llm = _llm(temperature=0.5).with_structured_output(OffTopicResponse)
+    result = llm.invoke(
+        [
+            SystemMessage(content=OFF_TOPIC_PROMPT),
+            *state.messages,
+        ]
+    )
+
+    return {
+        'messages': [AIMessage(content=chunk) for chunk in result.chunks],
+        'skill_path': ['off_topic'],
     }
 
 
