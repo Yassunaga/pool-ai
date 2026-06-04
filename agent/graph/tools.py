@@ -19,8 +19,8 @@ def greeting_instructions() -> str:
 # Valores base de orçamento por tipo de área (R$). Ilustrativos/configuráveis —
 # ajuste conforme a tabela real da Natural Engenharia.
 BUDGET_BY_AREA = {
-    'urban': 15000.0,
-    'rural': 22000.0,
+    'urban': 8000.0,
+    'rural': 10000.0,
 }
 
 
