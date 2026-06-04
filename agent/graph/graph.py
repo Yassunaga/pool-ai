@@ -6,7 +6,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 
 from .models import ConversationState
-from .nodes import agent
+from .nodes import extract, respond
 
 _graph = None
 _graph_lock = threading.Lock()
@@ -17,9 +17,14 @@ def _build_graph():
     checkpointer = SqliteSaver(conn)
 
     workflow = StateGraph(ConversationState)
-    workflow.add_node('agent', agent)
-    workflow.add_edge(START, 'agent')
-    workflow.add_edge('agent', END)
+
+    workflow.add_node('extract', extract)
+    workflow.add_node('respond', respond)
+
+    # START → extract (preenche lead) → respond (LLM decide + emite) → END
+    workflow.add_edge(START, 'extract')
+    workflow.add_edge('extract', 'respond')
+    workflow.add_edge('respond', END)
 
     return workflow.compile(checkpointer=checkpointer)
 
