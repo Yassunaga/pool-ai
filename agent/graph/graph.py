@@ -2,11 +2,16 @@ import sqlite3
 import threading
 
 from django.conf import settings
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 
 from .models import ConversationState
 from .nodes import agent, extract
+
+# Modelos Pydantic próprios que viram parte do checkpoint e precisam ser
+# liberados explicitamente para (de)serialização msgpack.
+_ALLOWED_MSGPACK_MODULES = (('agent.graph.models', 'Lead'),)
 
 _graph = None
 _graph_lock = threading.Lock()
@@ -14,7 +19,8 @@ _graph_lock = threading.Lock()
 
 def _build_graph():
     conn = sqlite3.connect(settings.LANGGRAPH_DB_PATH, check_same_thread=False)
-    checkpointer = SqliteSaver(conn)
+    serde = JsonPlusSerializer(allowed_msgpack_modules=_ALLOWED_MSGPACK_MODULES)
+    checkpointer = SqliteSaver(conn, serde=serde)
 
     workflow = StateGraph(ConversationState)
 

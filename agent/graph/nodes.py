@@ -1,8 +1,8 @@
 from langchain.agents import create_agent
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import AIMessage, SystemMessage
 
 from .llm import get_llm
-from .models import ConversationState, Lead
+from .models import ChunkedReply, ConversationState, Lead
 from .prompts import AGENT_PROMPT, EXTRACTOR_PROMPT
 from .tools import (
     greeting_instructions,
@@ -35,6 +35,10 @@ def agent(state: ConversationState) -> dict:
 
     Roda um loop ReAct interno (create_agent); só a resposta final volta ao
     estado — as mensagens intermediárias de tool ficam no contexto isolado.
+
+    Via `response_format=ChunkedReply`, a resposta final já sai dividida em
+    mensagens curtas (chunks), enviadas separadamente no WhatsApp como na
+    primeira versão da IA.
     """
     system = AGENT_PROMPT.format(
         name=state.lead.name or 'desconhecido',
@@ -48,7 +52,11 @@ def agent(state: ConversationState) -> dict:
             make_build_budget(state.lead),
         ],
         system_prompt=system,
+        response_format=ChunkedReply,
     )
     result = runnable.invoke({'messages': list(state.messages)})
 
-    return {'messages': [result['messages'][-1]]}
+    reply: ChunkedReply = result['structured_response']
+    chunks = [c.strip() for c in reply.chunks if c and c.strip()]
+
+    return {'messages': [AIMessage(content=chunk) for chunk in chunks]}
