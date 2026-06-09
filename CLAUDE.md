@@ -27,6 +27,9 @@ uv run python manage.py chat --show-state          # print collected_data each t
 
 # Evolution API (WhatsApp) — separate stack
 cd evolution-api && docker compose up -d
+
+# Debounce worker — MUST run alongside the web server for WhatsApp replies
+uv run python manage.py debounce_worker
 ```
 
 There is no test runner wired up yet (`agent/tests.py` is empty).
@@ -45,7 +48,14 @@ This is a Django + DRF backend wrapping a **LangGraph** conversational sales age
 Both entry points funnel through `agent/services/chat_service.py::send_message(session_id, message)`, which calls `graph.invoke(...)` with `config={'configurable': {'thread_id': session_id}}` and then collects the **tail run of `AIMessage`s** from the result as `replies` (a single turn can emit multiple messages, as the `greetings` node does).
 
 - `POST /api/agent/chat/` (`ChatAPIView`) — JSON `{session_id, message}` in, `{session_id, replies, collected_data, workflow_step}` out.
-- `POST /api/agent/webhook/evolution/` (`EvolutionWebhookAPIView`) — WhatsApp inbound. Filters out `fromMe`, group (`@g.us`), and `status@broadcast` messages, derives `session_id` from the sender's number (`remoteJid.split('@')[0]`), runs the graph, then posts each reply back via `agent/services/evolution_service.py::send_text()` (`POST {EVOLUTION_API_URL}/message/sendText/{EVOLUTION_INSTANCE}`). **Always returns 200**, even on failure, so Evolution doesn't retry and double-run the graph.
+- `POST /api/agent/webhook/evolution/` (`EvolutionWebhookAPIView`) — WhatsApp inbound. Filters out `fromMe`, group (`@g.us`), and `status@broadcast` messages, derives `session_id` from the sender's number (`remoteJid.split('@')[0]`), then **enqueues the text into the Redis debounce buffer** (`agent/services/debounce_service.py::enqueue`) and returns immediately. It does **not** run the graph inline. **Always returns 200**, even on failure, so Evolution doesn't retry and double-run the graph.
+
+### Message debounce (WhatsApp burst grouping)
+
+Burst messages from one number ("Oi" + "tudo bem?") must be answered as a single turn. Because production runs **multiple web workers**, the buffer can't live in process memory — it lives in Redis (`agent/services/debounce_service.py`), reusing the Evolution Redis isolated on **DB index 1** (keys prefixed `debounce:`).
+
+- Webhook → `enqueue(number, text)`: `RPUSH debounce:buffer:{number}` + `ZADD debounce:pending {now + DEBOUNCE_SECONDS}` (the deadline is pushed forward on every new message).
+- `manage.py debounce_worker` (separate long-lived process, run **one** instance) polls every 0.5s, and for each session whose window elapsed drains the buffer **atomically via a Lua script** (`LRANGE`+`DEL`+`ZREM` + deadline re-check — prevents lost messages on the window boundary), joins the texts with `\n` into a single `HumanMessage`, runs the graph via `send_message`, and posts replies via `send_text`. Each session is processed in its own `try/except` because it runs outside the HTTP cycle. **The worker must be running or WhatsApp replies never get sent.**
 
 ### Evolution API (WhatsApp) integration
 

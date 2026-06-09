@@ -133,6 +133,9 @@ LANGGRAPH_DB_PATH = str(BASE_DIR / 'langgraph_state.sqlite')
 EVOLUTION_API_URL = os.environ.get('EVOLUTION_API_URL', 'http://localhost:8080')
 EVOLUTION_API_KEY = os.environ.get('EVOLUTION_API_KEY', '')
 EVOLUTION_INSTANCE = os.environ.get('EVOLUTION_INSTANCE', 'Local')
+# "digitando..." (presence composing) dura len(texto) * N ms antes de cada envio.
+# ~30ms/char ≈ digitação humana e fica visível mesmo em mensagens curtas (0 desliga).
+EVOLUTION_TYPING_MS_PER_CHAR = int(os.environ.get('EVOLUTION_TYPING_MS_PER_CHAR', '30'))
 # Comma-separated allowlist of WhatsApp numbers the bot may reply to.
 # Leave empty to reply to anyone who sends a 1:1 message.
 EVOLUTION_ALLOWED_NUMBERS = [
@@ -140,3 +143,8 @@ EVOLUTION_ALLOWED_NUMBERS = [
     for n in os.environ.get('EVOLUTION_ALLOWED_NUMBERS', '').split(',')
     if n.strip()
 ]
+
+# Debounce (agrupa mensagens do WhatsApp recebidas em rajada num só turno).
+# Reusa o Redis do stack da Evolution, isolado no DB index 1 (Evolution usa o 0).
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/1')
+DEBOUNCE_SECONDS = float(os.environ.get('DEBOUNCE_SECONDS', '8'))
