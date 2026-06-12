@@ -29,9 +29,14 @@ cd evolution-api && docker compose up -d
 
 # Debounce worker — MUST run alongside the web server for WhatsApp replies
 uv run python manage.py debounce_worker
+
+# Evals do agente — roda cenários contra o grafo real e reporta X/N aprovados
+uv run python manage.py evals                    # suíte completa (com LLM-judge)
+uv run python manage.py evals --no-judge         # só asserts determinísticos (mais barato)
+uv run python manage.py evals --scenario <id>    # um cenário só
 ```
 
-There is no test runner wired up yet (`agent/tests.py` is empty).
+`agent/tests.py` (Django `TestCase`) ainda está vazio. O que existe é o **harness de evals** em `agent/evals/` (comando `manage.py evals`): cada cenário roda o grafo real (chama o OpenRouter) num thread isolado com `MemorySaver` — não toca `langgraph_state.sqlite` nem o banco Django. Como bate na API, **custa tokens; rode deliberadamente, não em todo commit** (sai com código 1 se algum cenário reprovar, então serve pra CI manual). Estrutura: `scenarios.py` (roteiros fixos do "cliente"), `assertions.py` (checagens determinísticas: valor citado ≤1x e só após o cliente perguntar, sem hífen, nome/área extraídos, handoff marcado), `judge.py` (LLM-judge pro subjetivo: natural? repetiu pergunta? inventou fato fora do FAQ?), `harness.py` (runner). Mídia (áudio/imagem) ainda não é avaliada — depende da POOL-16.
 
 ## Architecture
 
@@ -77,3 +82,4 @@ Evolution runs in Docker at `localhost:8080` (`evolution-api/docker-compose.yml`
 
 ### Rules
 - Prefer using pydantic models over TypedDict for LangGraph.
+- All the code and comments must be written in English.

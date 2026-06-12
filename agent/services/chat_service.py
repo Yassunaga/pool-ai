@@ -10,6 +10,22 @@ from .evolution_service import send_text
 logger = logging.getLogger(__name__)
 
 
+def collect_replies(result: dict) -> list[str]:
+    """Pega o rabo final de ``AIMessage``s do resultado do grafo, em ordem.
+
+    Um turno emite várias mensagens (o nó `agent` divide a resposta em chunks),
+    cada uma virando um ``AIMessage`` — esta função recolhe só as do último turno.
+    Compartilhado entre o fluxo de produção e o harness de evals."""
+    replies: list[str] = []
+    for m in reversed(result['messages']):
+        if isinstance(m, AIMessage):
+            replies.append(m.content)
+        else:
+            break
+    replies.reverse()
+    return replies
+
+
 def send_message(session_id: str, message: str) -> dict:
     """Run one turn of the sales conversation for the given session."""
     graph = get_graph()
@@ -22,17 +38,9 @@ def send_message(session_id: str, message: str) -> dict:
 
     _sync_lead(session_id, result)
 
-    replies: list[str] = []
-    for m in reversed(result['messages']):
-        if isinstance(m, AIMessage):
-            replies.append(m.content)
-        else:
-            break
-    replies.reverse()
-
     return {
         'session_id': session_id,
-        'replies': replies,
+        'replies': collect_replies(result),
     }
 
 

@@ -44,13 +44,14 @@ def agent(state: ConversationState) -> dict:
         name=state.lead.name or 'desconhecido',
         area_type=state.lead.area_type or 'não identificado',
         handoff_status='já solicitado' if state.handoff_requested else 'ainda não solicitado',
+        budget_status='já informado' if state.budget_given else 'ainda não informado',
     )
     runnable = create_agent(
         model=get_llm(temperature=0.3),
         tools=[
             greeting_instructions,
             make_retrieve_lead_information(state.lead),
-            make_build_budget(state.lead),
+            make_build_budget(state.lead, state.budget_given),
         ],
         system_prompt=system,
         response_format=ChunkedReply,
@@ -60,7 +61,31 @@ def agent(state: ConversationState) -> dict:
     reply: ChunkedReply = result['structured_response']
     chunks = [c.strip() for c in reply.chunks if c and c.strip()]
 
+    # O valor passa a ser considerado "informado" assim que a tool `build_budget`
+    # roda num turno em que o flag ainda era False (ou seja, ela entregou o número).
+    budget_given = state.budget_given or (
+        not state.budget_given and _build_budget_called(result['messages'])
+    )
+
     return {
         'messages': [AIMessage(content=chunk) for chunk in chunks],
         'handoff_requested': state.handoff_requested or reply.request_handoff,
+        'budget_given': budget_given,
     }
+
+
+def _build_budget_called(messages: list) -> bool:
+    """Detecta se a tool `build_budget` foi invocada no loop ReAct deste turno.
+
+    O loop interno do `create_agent` não volta ao estado externo, mas suas
+    mensagens (incluindo as tool calls e ToolMessages) ficam em
+    ``result['messages']``. As mensagens de turnos anteriores que entram aqui são
+    só Human/AI (os chunks), sem tool calls — então não geram falso positivo."""
+    for m in messages:
+        for tc in getattr(m, 'tool_calls', None) or []:
+            name = tc.get('name') if isinstance(tc, dict) else getattr(tc, 'name', None)
+            if name == 'build_budget':
+                return True
+        if getattr(m, 'name', None) == 'build_budget':
+            return True
+    return False

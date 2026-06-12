@@ -1,0 +1,19 @@
+# Local isolated runner for the Jira pickup automation.
+#   cd automation && docker compose up -d --build
+#   docker compose logs -f          # watch runs
+#   docker compose down             # stop
+services:
+  jira-agent:
+    build: .
+    image: pool-ai-jira-agent
+    cap_add:
+      - NET_ADMIN                 # required by init-firewall.sh to set the egress allowlist
+    env_file:
+      - .env.automation          # secrets — never commit this file (see .env.automation.example)
+    environment:
+      RUN_INTERVAL: "900"        # seconds between pickup runs (900 = 15 min)
+      FIREWALL: "1"              # set 0 to disable the egress lockdown (debug only)
+    volumes:
+      - ..:/workspace            # mount the repo root; automation/ lives inside it
+    working_dir: /workspace
+    restart: unless-stopped

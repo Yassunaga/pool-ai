@@ -17,11 +17,21 @@ _graph = None
 _graph_lock = threading.Lock()
 
 
-def _build_graph():
-    conn = sqlite3.connect(settings.LANGGRAPH_DB_PATH, check_same_thread=False)
-    serde = JsonPlusSerializer(allowed_msgpack_modules=_ALLOWED_MSGPACK_MODULES)
-    checkpointer = SqliteSaver(conn, serde=serde)
+def make_serde() -> JsonPlusSerializer:
+    """Serde com os modelos pydantic próprios liberados para msgpack.
 
+    Compartilhado entre o checkpointer de produção (SQLite) e qualquer outro
+    (ex.: o ``MemorySaver`` usado pelos evals), pra todos (de)serializarem o
+    ``Lead`` da mesma forma."""
+    return JsonPlusSerializer(allowed_msgpack_modules=_ALLOWED_MSGPACK_MODULES)
+
+
+def build_graph(checkpointer):
+    """Compila o grafo do agente com o checkpointer dado.
+
+    Fica separado de ``get_graph`` para que os evals possam montar uma instância
+    com ``MemorySaver`` (estado em memória, descartável) em vez de tocar o
+    ``langgraph_state.sqlite`` de produção."""
     workflow = StateGraph(ConversationState)
 
     workflow.add_node('extract', extract)
@@ -33,6 +43,12 @@ def _build_graph():
     workflow.add_edge('agent', END)
 
     return workflow.compile(checkpointer=checkpointer)
+
+
+def _build_graph():
+    conn = sqlite3.connect(settings.LANGGRAPH_DB_PATH, check_same_thread=False)
+    checkpointer = SqliteSaver(conn, serde=make_serde())
+    return build_graph(checkpointer)
 
 
 def get_graph():
