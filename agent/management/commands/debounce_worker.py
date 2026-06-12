@@ -53,5 +53,6 @@ class Command(BaseCommand):
                     send_text(number, reply)
                 logger.info('debounce flush %s (%d msgs)', number, len(msgs))
             except Exception:
+                # Não re-levante: uma sessão com erro não pode derrubar o worker
+                # (as outras sessões e os próximos ticks precisam continuar).
                 logger.exception('debounce_worker: erro ao processar sessão %s', number)
-                raise

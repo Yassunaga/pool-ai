@@ -43,6 +43,7 @@ def agent(state: ConversationState) -> dict:
     system = AGENT_PROMPT.format(
         name=state.lead.name or 'desconhecido',
         area_type=state.lead.area_type or 'não identificado',
+        handoff_status='já solicitado' if state.handoff_requested else 'ainda não solicitado',
     )
     runnable = create_agent(
         model=get_llm(temperature=0.3),
@@ -59,4 +60,7 @@ def agent(state: ConversationState) -> dict:
     reply: ChunkedReply = result['structured_response']
     chunks = [c.strip() for c in reply.chunks if c and c.strip()]
 
-    return {'messages': [AIMessage(content=chunk) for chunk in chunks]}
+    return {
+        'messages': [AIMessage(content=chunk) for chunk in chunks],
+        'handoff_requested': state.handoff_requested or reply.request_handoff,
+    }

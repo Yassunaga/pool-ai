@@ -23,7 +23,6 @@ uv run python manage.py migrate
 # Interactive REPL against the LangGraph sales agent
 uv run python manage.py chat                       # new session
 uv run python manage.py chat --session-id foo      # resume thread "foo"
-uv run python manage.py chat --show-state          # print collected_data each turn
 
 # Evolution API (WhatsApp) — separate stack
 cd evolution-api && docker compose up -d
@@ -41,14 +40,23 @@ This is a Django + DRF backend wrapping a **LangGraph** conversational sales age
 ### Two storage layers (don't confuse them)
 
 - `db.sqlite3` — Django ORM (just the `Agent` model in `agent/models.py`).
-- `langgraph_state.sqlite` — LangGraph thread checkpointer, opened directly via `sqlite3.connect(settings.LANGGRAPH_DB_PATH)` in `agent/graph/graph.py`. This is where per-`session_id` conversation state lives (messages, `collected_data`, `is_greeted`, `workflow_step`). Path is set in `config/settings.py` as `LANGGRAPH_DB_PATH`.
+- `langgraph_state.sqlite` — LangGraph thread checkpointer, opened directly via `sqlite3.connect(settings.LANGGRAPH_DB_PATH)` in `agent/graph/graph.py`. This is where per-`session_id` conversation state lives: `ConversationState` (`agent/graph/models.py`) holds `messages` plus `lead` — a `Lead` pydantic model with `name` and `area_type` (`'urban' | 'rural'`). Path is set in `config/settings.py` as `LANGGRAPH_DB_PATH`. Gotcha: custom pydantic models stored in the checkpoint must be allowlisted in `_ALLOWED_MSGPACK_MODULES` in `agent/graph/graph.py` (currently just `Lead`) or (de)serialization fails.
 
 ### Request → graph flow
 
-Both entry points funnel through `agent/services/chat_service.py::send_message(session_id, message)`, which calls `graph.invoke(...)` with `config={'configurable': {'thread_id': session_id}}` and then collects the **tail run of `AIMessage`s** from the result as `replies` (a single turn can emit multiple messages, as the `greetings` node does).
+Both entry points funnel through `agent/services/chat_service.py::send_message(session_id, message)`, which calls `graph.invoke(...)` with `config={'configurable': {'thread_id': session_id}}` and then collects the **tail run of `AIMessage`s** from the result as `replies` (a single turn emits multiple messages because the `agent` node splits its answer into `ChunkedReply` chunks — see below). It returns only `{session_id, replies}`.
 
-- `POST /api/agent/chat/` (`ChatAPIView`) — JSON `{session_id, message}` in, `{session_id, replies, collected_data, workflow_step}` out.
+- `POST /api/agent/chat/` (`ChatAPIView`) — JSON `{session_id, message}` in, `{session_id, replies}` out (shaped by `ChatResponseSerializer` in `agent/serializers.py`).
 - `POST /api/agent/webhook/evolution/` (`EvolutionWebhookAPIView`) — WhatsApp inbound. Filters out `fromMe`, group (`@g.us`), and `status@broadcast` messages, derives `session_id` from the sender's number (`remoteJid.split('@')[0]`), then **enqueues the text into the Redis debounce buffer** (`agent/services/debounce_service.py::enqueue`) and returns immediately. It does **not** run the graph inline. **Always returns 200**, even on failure, so Evolution doesn't retry and double-run the graph.
+
+### The graph (agent/graph/)
+
+Two nodes, linear: `START → extract → agent → END` (`agent/graph/graph.py`, lazy thread-safe singleton via `get_graph()`).
+
+- `extract` (`agent/graph/nodes.py`) — structured-output LLM call (temperature 0.0) that fills the `Lead` fields from the whole conversation; only non-null values overwrite, so already-collected data is never erased.
+- `agent` — runs an internal ReAct loop via `create_agent` with tools `greeting_instructions`, `retrieve_lead_information`, and `build_budget` (`agent/graph/tools.py` — the latter two are closures bound to the current `lead`, since the inner loop only sees messages). Only the final answer returns to state, as a `ChunkedReply` (1–3 short chunks via `response_format`), each chunk becoming its own `AIMessage` so WhatsApp delivery mimics a person typing in sequence.
+- LLM factory lives in `agent/graph/llm.py` (`langchain_openrouter.ChatOpenRouter`), shared by both nodes.
+- `agent/graph/faq.py` — the FAQ, the agent's **single source of truth for factual questions** about the company (costs, fees, deadlines, warranties, coverage, policies). `render_faq()` injects it into the agent system prompt (`KNOWN_FACTS` in `agent/graph/prompts.py`); anything not answered there the agent must defer to the human specialist instead of improvising. To change a factual answer, edit `faq.py` — not the prompt. Entries marked `[CONFIRMAR]` are safe placeholders awaiting the real business policy.
 
 ### Message debounce (WhatsApp burst grouping)
 
@@ -65,7 +73,7 @@ Evolution runs in Docker at `localhost:8080` (`evolution-api/docker-compose.yml`
 
 ### Settings / env
 
-`.env` is loaded in `config/settings.py` via `python-dotenv`. Required: `OPENAI_API_KEY`. Optional with defaults: `OPENAI_MODEL` (`gpt-4o-mini`), `EVOLUTION_API_URL` (`http://localhost:8080`), `EVOLUTION_INSTANCE` (`Local`), `EVOLUTION_API_KEY`, `EVOLUTION_ALLOWED_NUMBERS`. See `.env.example`.
+`.env` is loaded in `config/settings.py` via `python-dotenv`. Required: `OPENROUTER_API_KEY`. Optional with defaults: `OPENROUTER_MODEL` (`anthropic/claude-sonnet-4-6`), `OPENROUTER_BASE_URL` (`https://openrouter.ai/api/v1`), `EVOLUTION_API_URL` (`http://localhost:8080`), `EVOLUTION_INSTANCE` (`Local`), `EVOLUTION_API_KEY`, `EVOLUTION_ALLOWED_NUMBERS`, `EVOLUTION_TYPING_MS_PER_CHAR` (`30` — "digitando…" presence lasts `len(text) * N` ms before each send; `0` disables), `REDIS_URL` (`redis://localhost:6379/1`), `DEBOUNCE_SECONDS` (`8`). See `.env.example`.
 
 ### Rules
 - Prefer using pydantic models over TypedDict for LangGraph.

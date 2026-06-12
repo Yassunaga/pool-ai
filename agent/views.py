@@ -53,8 +53,13 @@ class EvolutionWebhookAPIView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        # Token compartilhado na URL do webhook (?token=...). Vazio = sem checagem.
+        expected = settings.EVOLUTION_WEBHOOK_TOKEN
+        if expected and request.query_params.get('token') != expected:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
         payload = request.data or {}
-        print(payload)
+        logger.debug('evolution webhook payload: %s', payload)
         if str(payload.get('event', '')).lower() != 'messages.upsert':
             return Response(status=status.HTTP_200_OK)
         data = payload.get('data') or {}
@@ -72,9 +77,9 @@ class EvolutionWebhookAPIView(APIView):
         if not number:
             return Response(status=status.HTTP_200_OK)
 
-        # allowed = settings.EVOLUTION_ALLOWED_NUMBERS
-        # if allowed and number not in allowed:
-        #     return Response(status=status.HTTP_200_OK)
+        allowed = settings.EVOLUTION_ALLOWED_NUMBERS
+        if allowed and number not in allowed:
+            return Response(status=status.HTTP_200_OK)
 
         text = _extract_text(data.get('message') or {})
         if not text:

@@ -22,8 +22,17 @@ class ChunkedReply(BaseModel):
         min_length=1,
         max_length=3,
     )
+    request_handoff: bool = Field(
+        default=False,
+        description='True se NESTA mensagem o cliente pediu ou aceitou ser '
+        'encaminhado para um atendente humano/especialista, ou se você '
+        'confirmou o encaminhamento. False caso contrário.',
+    )
 
 
 class ConversationState(BaseModel):
     messages: Annotated[list, add_messages] = Field(default_factory=list)
     lead: Lead = Field(default_factory=Lead)
+    # Vira True quando o cliente pede/aceita falar com um humano; é "pegajoso"
+    # (não volta a False) e dispara a notificação ao time uma única vez.
+    handoff_requested: bool = False

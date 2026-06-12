@@ -136,6 +136,12 @@ EVOLUTION_INSTANCE = os.environ.get('EVOLUTION_INSTANCE', 'Local')
 # "digitando..." (presence composing) dura len(texto) * N ms antes de cada envio.
 # ~30ms/char ≈ digitação humana e fica visível mesmo em mensagens curtas (0 desliga).
 EVOLUTION_TYPING_MS_PER_CHAR = int(os.environ.get('EVOLUTION_TYPING_MS_PER_CHAR', '30'))
+# Número de WhatsApp que recebe o aviso quando um lead pede atendimento humano.
+# Vazio = handoff só registrado no admin (Lead.handoff_requested), sem aviso.
+HANDOFF_NOTIFY_NUMBER = os.environ.get('HANDOFF_NOTIFY_NUMBER', '')
+# Token compartilhado do webhook da Evolution (configure a URL do webhook com
+# ?token=<valor>). Vazio = aceita qualquer chamada (apenas para dev local).
+EVOLUTION_WEBHOOK_TOKEN = os.environ.get('EVOLUTION_WEBHOOK_TOKEN', '')
 # Comma-separated allowlist of WhatsApp numbers the bot may reply to.
 # Leave empty to reply to anyone who sends a 1:1 message.
 EVOLUTION_ALLOWED_NUMBERS = [
