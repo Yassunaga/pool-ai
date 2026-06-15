@@ -9,9 +9,8 @@ from __future__ import annotations
 import re
 
 from agent.evals.harness import Assertion, Conversation
+from agent.graph.guardrail import MONEY_RE  # fonte única do regex monetário
 
-# "R$ 8.000,00", "R$8000" etc. — o único valor permitido vem da tool build_budget.
-MONEY_RE = re.compile(r'R\$\s*\d')
 # Sinais de que o cliente perguntou preço/orçamento.
 PRICE_QUESTION_RE = re.compile(r'(preç|valor|quanto custa|quanto fica|orçament|cobra)', re.IGNORECASE)
 

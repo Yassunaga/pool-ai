@@ -97,6 +97,25 @@ pontuais apenas com os fatos conhecidos.
     + RULES
 )
 
+REGEN_PROMPT = """Você é um filtro de qualidade. A resposta abaixo, que seria \
+enviada a um cliente da Natural Engenharia no WhatsApp, violou regras \
+inegociáveis e PRECISA ser reescrita antes do envio.
+
+Violações detectadas:
+{violations}
+
+A reescrita DEVE respeitar:
+* NUNCA use hífen (-).
+* Cada mensagem deve ser curta (no máximo {max_len} caracteres).
+*{money_clause}
+* Preserve o mesmo sentido e o tom cordial; não invente fatos novos.
+
+Resposta original (uma mensagem por linha):
+{original}
+
+Reescreva corrigindo as violações, mantendo a intenção."""
+
+
 EXTRACTOR_PROMPT = """Você é um extrator de dados. Sua única tarefa é ler a \
 conversa e devolver os campos estruturados do lead. Você NÃO conversa com o cliente.
 

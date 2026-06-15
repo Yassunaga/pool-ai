@@ -40,3 +40,10 @@ class ConversationState(BaseModel):
     # "pegajoso" (não volta a False). Garante por estado — não por prompt — que o
     # valor seja citado uma única vez na conversa: a tool passa a recusar repetir.
     budget_given: bool = False
+    # Transitório (reescrito a cada turno): resposta crua do nó `agent`, ainda não
+    # validada. Quem de fato anexa as mensagens finais ao cliente é o nó `validate`.
+    pending_chunks: list[str] = Field(default_factory=list)
+    # Transitório: True só no turno em que `build_budget` entrega o valor pela
+    # primeira vez. Sinaliza ao guardrail `validate` que UMA menção monetária é
+    # permitida nos chunks deste turno; em qualquer outro turno, nenhuma é.
+    budget_delivered_now: bool = False

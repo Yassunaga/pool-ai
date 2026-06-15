@@ -7,7 +7,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 
 from .models import ConversationState
-from .nodes import agent, extract
+from .nodes import agent, extract, validate
 
 # Modelos Pydantic próprios que viram parte do checkpoint e precisam ser
 # liberados explicitamente para (de)serialização msgpack.
@@ -36,11 +36,13 @@ def build_graph(checkpointer):
 
     workflow.add_node('extract', extract)
     workflow.add_node('agent', agent)
+    workflow.add_node('validate', validate)
 
-    # START → extract (preenche lead) → agent (responde) → END
+    # START → extract (preenche lead) → agent (responde) → validate (guardrail) → END
     workflow.add_edge(START, 'extract')
     workflow.add_edge('extract', 'agent')
-    workflow.add_edge('agent', END)
+    workflow.add_edge('agent', 'validate')
+    workflow.add_edge('validate', END)
 
     return workflow.compile(checkpointer=checkpointer)
 

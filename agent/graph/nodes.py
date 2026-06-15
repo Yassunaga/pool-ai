@@ -1,14 +1,19 @@
+import logging
+
 from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, SystemMessage
 
+from .guardrail import MAX_CHUNK_LEN, Violations, detect, sanitize
 from .llm import get_llm
 from .models import ChunkedReply, ConversationState, Lead
-from .prompts import AGENT_PROMPT, EXTRACTOR_PROMPT
+from .prompts import AGENT_PROMPT, EXTRACTOR_PROMPT, REGEN_PROMPT
 from .tools import (
     greeting_instructions,
     make_build_budget,
     make_retrieve_lead_information,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def extract(state: ConversationState) -> dict:
@@ -39,6 +44,9 @@ def agent(state: ConversationState) -> dict:
     Via `response_format=ChunkedReply`, a resposta final já sai dividida em
     mensagens curtas (chunks), enviadas separadamente no WhatsApp como na
     primeira versão da IA.
+
+    A resposta NÃO é anexada às mensagens aqui: vai para `pending_chunks` e quem
+    valida (guardrail determinístico) e anexa ao cliente é o nó `validate`.
     """
     system = AGENT_PROMPT.format(
         name=state.lead.name or 'desconhecido',
@@ -63,15 +71,74 @@ def agent(state: ConversationState) -> dict:
 
     # O valor passa a ser considerado "informado" assim que a tool `build_budget`
     # roda num turno em que o flag ainda era False (ou seja, ela entregou o número).
-    budget_given = state.budget_given or (
-        not state.budget_given and _build_budget_called(result['messages'])
-    )
+    budget_called = _build_budget_called(result['messages'])
+    budget_delivered_now = budget_called and not state.budget_given
+
+    return {
+        'pending_chunks': chunks,
+        'handoff_requested': state.handoff_requested or reply.request_handoff,
+        'budget_given': state.budget_given or budget_called,
+        'budget_delivered_now': budget_delivered_now,
+    }
+
+
+def validate(state: ConversationState) -> dict:
+    """Guardrail determinístico pós-agent (nó entre `agent` e `END`).
+
+    Regra de prompt nunca garante; aqui é onde de fato se impede que valor não
+    autorizado, hífen ou chunk longo demais cheguem ao cliente. Lê os
+    `pending_chunks` produzidos pelo `agent` e:
+
+    * detecta violações (regex de `guardrail.py`, reaproveitado dos evals);
+    * em violação, tenta UMA regeneração via LLM apontando o problema;
+    * sanitiza deterministicamente o resultado (garantia final, mesmo que a
+      regeneração falhe ou continue violando);
+    * só então anexa as mensagens finais ao estado (`messages`).
+
+    `budget_delivered_now` diz se UMA menção monetária é permitida neste turno
+    (a tool `build_budget` entregou o valor agora) — qualquer outra é bloqueada.
+    """
+    chunks = list(state.pending_chunks)
+    money_allowed = state.budget_delivered_now
+
+    violations = detect(chunks, money_allowed)
+    if violations.any:
+        logger.warning('guardrail acionado (%s): %s', violations, chunks)
+        regenerated = _regenerate(chunks, violations, money_allowed)
+        if regenerated:
+            chunks = regenerated
+        # Sanitização determinística é a garantia final: vale mesmo após a regen.
+        chunks = sanitize(chunks, money_allowed)
 
     return {
         'messages': [AIMessage(content=chunk) for chunk in chunks],
-        'handoff_requested': state.handoff_requested or reply.request_handoff,
-        'budget_given': budget_given,
+        'pending_chunks': [],
     }
+
+
+def _regenerate(
+    chunks: list[str], violations: Violations, money_allowed: bool
+) -> list[str] | None:
+    """Reescreve os chunks via LLM apontando as violações. Best-effort: se falhar,
+    devolve None e o chamador cai na sanitização determinística."""
+    money_clause = (
+        'O valor médio do orçamento pode aparecer UMA única vez, não mais que isso.'
+        if money_allowed
+        else 'NUNCA cite qualquer valor monetário (R$, preço, faixa).'
+    )
+    prompt = REGEN_PROMPT.format(
+        violations='\n'.join(f'- {d}' for d in violations.describe()),
+        money_clause=f' {money_clause}',
+        max_len=MAX_CHUNK_LEN,
+        original='\n'.join(chunks),
+    )
+    try:
+        llm = get_llm(temperature=0.0).with_structured_output(ChunkedReply)
+        reply: ChunkedReply = llm.invoke(prompt)
+        return [c.strip() for c in reply.chunks if c and c.strip()]
+    except Exception:  # noqa: BLE001 — regen é best-effort; sanitização garante o invariante
+        logger.exception('falha ao regenerar resposta no guardrail')
+        return None
 
 
 def _build_budget_called(messages: list) -> bool:
