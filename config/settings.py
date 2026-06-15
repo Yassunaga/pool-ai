@@ -142,14 +142,6 @@ HANDOFF_NOTIFY_NUMBER = os.environ.get('HANDOFF_NOTIFY_NUMBER', '')
 # Token compartilhado do webhook da Evolution (configure a URL do webhook com
 # ?token=<valor>). Vazio = aceita qualquer chamada (apenas para dev local).
 EVOLUTION_WEBHOOK_TOKEN = os.environ.get('EVOLUTION_WEBHOOK_TOKEN', '')
-# Comma-separated allowlist of WhatsApp numbers the bot may reply to.
-# Leave empty to reply to anyone who sends a 1:1 message.
-EVOLUTION_ALLOWED_NUMBERS = [
-    n.strip()
-    for n in os.environ.get('EVOLUTION_ALLOWED_NUMBERS', '').split(',')
-    if n.strip()
-]
-
 # Debounce (agrupa mensagens do WhatsApp recebidas em rajada num só turno).
 # Reusa o Redis do stack da Evolution, isolado no DB index 1 (Evolution usa o 0).
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/1')

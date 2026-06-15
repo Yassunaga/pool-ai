@@ -74,11 +74,9 @@ Burst messages from one number ("Oi" + "tudo bem?") must be answered as a single
 
 Evolution runs in Docker at `localhost:8080` (`evolution-api/docker-compose.yml`: evolution-api + postgres + redis). Django runs on the host at `:8000`. Critical gotcha: for the container's webhook to reach Django, the webhook URL must use `host.docker.internal:8000`, **not** `localhost`. `host.docker.internal` is already in `ALLOWED_HOSTS` (`config/settings.py`) — keep it there or Django 400s with `DisallowedHost`.
 
-`EVOLUTION_ALLOWED_NUMBERS` (comma-separated env var) gates which sender numbers get replies; empty = everyone. The allowlist check in `EvolutionWebhookAPIView` is currently commented out — re-enable before exposing.
-
 ### Settings / env
 
-`.env` is loaded in `config/settings.py` via `python-dotenv`. Required: `OPENROUTER_API_KEY`. Optional with defaults: `OPENROUTER_MODEL` (`anthropic/claude-sonnet-4-6`), `OPENROUTER_BASE_URL` (`https://openrouter.ai/api/v1`), `EVOLUTION_API_URL` (`http://localhost:8080`), `EVOLUTION_INSTANCE` (`Local`), `EVOLUTION_API_KEY`, `EVOLUTION_ALLOWED_NUMBERS`, `EVOLUTION_TYPING_MS_PER_CHAR` (`30` — "digitando…" presence lasts `len(text) * N` ms before each send; `0` disables), `REDIS_URL` (`redis://localhost:6379/1`), `DEBOUNCE_SECONDS` (`8`). See `.env.example`.
+`.env` is loaded in `config/settings.py` via `python-dotenv`. Required: `OPENROUTER_API_KEY`. Optional with defaults: `OPENROUTER_MODEL` (`anthropic/claude-sonnet-4-6`), `OPENROUTER_BASE_URL` (`https://openrouter.ai/api/v1`), `EVOLUTION_API_URL` (`http://localhost:8080`), `EVOLUTION_INSTANCE` (`Local`), `EVOLUTION_API_KEY`, `EVOLUTION_TYPING_MS_PER_CHAR` (`30` — "digitando…" presence lasts `len(text) * N` ms before each send; `0` disables), `REDIS_URL` (`redis://localhost:6379/1`), `DEBOUNCE_SECONDS` (`8`). See `.env.example`.
 
 ### Rules
 - Prefer using pydantic models over TypedDict for LangGraph.

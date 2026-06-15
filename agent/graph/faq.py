@@ -1,52 +1,58 @@
 # FAQ — única fonte de verdade do agente para perguntas factuais sobre a
 # empresa (custos, taxas, prazos, garantias, políticas). O que não estiver
 # aqui o agente encaminha ao especialista em vez de improvisar.
-#
-# TODO(negócio): trocar as respostas marcadas com [CONFIRMAR] pela política
-# real da Natural Engenharia. Enquanto isso elas são seguras: encaminham ao
-# especialista em vez de afirmar algo que pode estar errado.
 
 FAQ = [
     {
         'q': 'A visita técnica/avaliação no local é cobrada?',
-        # [CONFIRMAR] se a visita é gratuita, dizer isso explicitamente aqui.
-        'a': 'As condições da visita técnica, inclusive se há algum custo, são '
-        'confirmadas pelo especialista no momento do agendamento.',
+        'a': 'Na maioria dos casos não é necessária visita técnica: o '
+        'orçamento é feito à distância, já que conhecemos bem toda a região. '
+        'Quando há necessidade (situações mais específicas), a visita pode ser '
+        'feita, e não há cobrança pela visita em si — o que pode ser cobrado é '
+        'o deslocamento, conforme a distância.',
     },
     {
         'q': 'Quais são as formas de pagamento? Parcela?',
-        # [CONFIRMAR] condições reais de pagamento/parcelamento.
-        'a': 'As condições de pagamento são apresentadas pelo especialista '
-        'junto com o orçamento fechado.',
+        'a': 'O pagamento é feito em 50% para iniciar o serviço e 50% na '
+        'entrega. Outras condições podem ser negociadas caso a caso com o '
+        'especialista.',
     },
     {
         'q': 'Quanto tempo demora a perfuração?',
-        # [CONFIRMAR] faixa típica de dias praticada pela empresa.
-        'a': 'O prazo depende do tipo de solo e da profundidade final; o '
-        'especialista informa a estimativa após a avaliação técnica.',
+        'a': 'A perfuração leva em média de 3 a 4 dias, dependendo da '
+        'complexidade do solo a ser perfurado.',
     },
     {
         'q': 'Precisa de licença ou outorga para perfurar?',
-        # [CONFIRMAR] como a empresa apoia o cliente na regularização.
-        'a': 'A documentação varia conforme a região; o especialista orienta '
-        'sobre o processo no seu caso.',
+        'a': 'A perfuração é feita com ART (Anotação de Responsabilidade '
+        'Técnica) emitida pela empresa junto ao CREA, o que garante a '
+        'regularidade técnica da obra. Caso o cliente precise de outorga ou '
+        'licenciamento ambiental, o especialista orienta sobre o processo.',
     },
     {
         'q': 'O serviço tem garantia?',
-        # [CONFIRMAR] garantia real oferecida.
-        'a': 'As condições de garantia são detalhadas pelo especialista na '
-        'proposta.',
+        'a': 'Sim. O serviço tem garantia total de 1 ano.',
     },
     {
         'q': 'Vocês atendem a minha cidade/região?',
-        # [CONFIRMAR] área de cobertura real.
-        'a': 'A cobertura da sua região é confirmada pelo especialista no '
-        'primeiro contato.',
+        'a': 'Atendemos todo o estado de Roraima, em todos os municípios sem '
+        'exceção. O valor do serviço é basicamente o mesmo para todos; o que '
+        'varia é o acréscimo de deslocamento, conforme a distância.',
     },
     {
         'q': 'Qual a profundidade do poço?',
-        'a': 'A profundidade varia conforme o terreno e o lençol de água; ela '
-        'é definida na avaliação técnica ou geofísica feita no local.',
+        'a': 'A profundidade varia conforme o terreno e o lençol de água e é '
+        'definida na avaliação técnica ou geofísica feita no local. Como '
+        'referência, poços semi-artesianos costumam ficar entre 20 e 30 metros '
+        'e os artesianos acima de 30 metros, frequentemente ultrapassando 60.',
+    },
+    {
+        'q': 'Qual a diferença entre poço semi-artesiano e artesiano?',
+        'a': 'O poço semi-artesiano em geral tem profundidade entre 20 e 30 '
+        'metros. O poço artesiano fica acima de 30 metros e, na maior parte '
+        'dos casos, ultrapassa 60 metros, podendo chegar a 80 ou até cerca de '
+        '100 metros, conforme a profundidade em que se encontra água '
+        'suficiente.',
     },
     {
         'q': 'Quanto custa o poço?',

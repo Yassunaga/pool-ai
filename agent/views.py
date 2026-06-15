@@ -77,10 +77,6 @@ class EvolutionWebhookAPIView(APIView):
         if not number:
             return Response(status=status.HTTP_200_OK)
 
-        allowed = settings.EVOLUTION_ALLOWED_NUMBERS
-        if allowed and number not in allowed:
-            return Response(status=status.HTTP_200_OK)
-
         text = _extract_text(data.get('message') or {})
         if not text:
             return Response(status=status.HTTP_200_OK)
