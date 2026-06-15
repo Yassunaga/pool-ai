@@ -3,19 +3,6 @@ from langchain_core.tools import tool
 from .models import Lead
 
 
-@tool
-def greeting_instructions() -> str:
-    """Retorna as instruções de como saudar o cliente na PRIMEIRA mensagem da
-    conversa. Chame esta tool no início de um atendimento novo, antes de
-    responder ao cliente, para saber o tom e o conteúdo da saudação de abertura."""
-    TEXT = """
-    Use esse texto na primeira saudação: Oi! Bem Vindo à Natural Engenharia! Empresa referência no segmento de perfuração de poços artesianos!
-    Se o usuário já foi saudado, só responda a saudação dele normalmente.
-    """
-
-    return TEXT
-
-
 # Valores base de orçamento por tipo de área (R$). Ilustrativos/configuráveis —
 # ajuste conforme a tabela real da Natural Engenharia.
 BUDGET_BY_AREA = {
