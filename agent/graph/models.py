@@ -36,7 +36,3 @@ class ConversationState(BaseModel):
     # Vira True quando o cliente pede/aceita falar com um humano; é "pegajoso"
     # (não volta a False) e dispara a notificação ao time uma única vez.
     handoff_requested: bool = False
-    # Vira True no turno em que a tool `build_budget` informa o valor médio; é
-    # "pegajoso" (não volta a False). Garante por estado — não por prompt — que o
-    # valor seja citado uma única vez na conversa: a tool passa a recusar repetir.
-    budget_given: bool = False

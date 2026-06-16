@@ -33,7 +33,6 @@ class Turn:
     replies: list[str]
     lead: dict
     handoff_requested: bool
-    budget_given: bool | None  # None enquanto POOL-10 não existir
 
 
 @dataclass
@@ -110,7 +109,6 @@ def run_scenario(graph, scenario: Scenario, use_judge: bool) -> ScenarioResult:
                     replies=collect_replies(result),
                     lead={'name': lead.name, 'area_type': lead.area_type},
                     handoff_requested=bool(result.get('handoff_requested')),
-                    budget_given=result.get('budget_given'),
                 )
             )
     except Exception as exc:  # noqa: BLE001 — um cenário que explode não derruba a suíte

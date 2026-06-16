@@ -1,6 +1,6 @@
 """Cenários de eval — roteiros fixos de mensagens do "cliente".
 
-Cobrem qualificação, preço (citar uma vez / não antecipar / não repetir), FAQ
+Cobrem qualificação, preço (não antecipar / repetir quando pedido de novo), FAQ
 (deferir ao especialista sem inventar), handoff (explícito e por frustração) e
 fora de escopo.
 
@@ -14,6 +14,7 @@ from agent.evals.assertions import (
     area_extracted,
     base_assertions,
     handoff_requested,
+    money_repeated_when_asked_again,
     name_extracted,
 )
 from agent.evals.harness import Scenario
@@ -66,10 +67,10 @@ SCENARIOS: list[Scenario] = [
         extra=[area_extracted('rural')],
     ),
     _s(
-        'preco_nao_repete',
-        'Pedir o valor duas vezes não pode fazer o agente repetir o número.',
+        'preco_repete_quando_pedido',
+        'Se o cliente pede o valor de novo (não lembra), o agente informa a média outra vez.',
         ['Oi sou a Ana, lote urbano', 'qual o valor?', 'me fala de novo quanto fica?'],
-        extra=[name_extracted('Ana'), area_extracted('urban')],
+        extra=[name_extracted('Ana'), area_extracted('urban'), money_repeated_when_asked_again()],
     ),
     _s(
         'preco_antes_de_qualificar',

@@ -29,14 +29,15 @@ def no_hyphen() -> Assertion:
     return ('sem hífen', check)
 
 
-def money_at_most_once() -> Assertion:
-    """O valor pode ser dito no máximo uma vez na conversa inteira."""
+def money_repeated_when_asked_again() -> Assertion:
+    """Se o cliente pergunta o valor mais de uma vez, o agente deve informar a
+    média de novo — não pode recusar a repetir o número."""
 
     def check(conv: Conversation) -> tuple[bool, str]:
         n = len(MONEY_RE.findall(conv.all_reply_text()))
-        return n <= 1, f'valor monetário apareceu {n}x (esperado no máximo 1x)'
+        return n >= 2, f'valor monetário apareceu {n}x (esperado pelo menos 2x ao ser pedido de novo)'
 
-    return ('valor citado no máximo 1x', check)
+    return ('valor repetido quando pedido de novo', check)
 
 
 def money_only_after_price_question() -> Assertion:
@@ -93,6 +94,5 @@ def base_assertions() -> list[Assertion]:
     """Asserts que valem para TODO cenário (invariantes do agente)."""
     return [
         no_hyphen(),
-        money_at_most_once(),
         money_only_after_price_question(),
     ]

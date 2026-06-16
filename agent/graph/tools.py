@@ -11,14 +11,9 @@ BUDGET_BY_AREA = {
 }
 
 
-def make_build_budget(lead: Lead, budget_given: bool = False):
-    """Cria a tool `build_budget` amarrada ao `lead` e ao flag `budget_given` do
-    estado atual (closure), já que o loop ReAct interno do `create_agent` só
-    recebe as mensagens.
-
-    Quando `budget_given` já é True (o valor foi informado num turno anterior), a
-    tool recusa repetir o número — assim a regra "cite o valor uma única vez" é
-    garantida por estado, não por o modelo lembrar do histórico."""
+def make_build_budget(lead: Lead):
+    """Cria a tool `build_budget` amarrada ao `lead` do estado atual (closure),
+    já que o loop ReAct interno do `create_agent` só recebe as mensagens."""
 
     @tool
     def build_budget() -> str:
@@ -26,13 +21,6 @@ def make_build_budget(lead: Lead, budget_given: bool = False):
         tipo de área do lead (urbano/rural). Use esta tool quando precisar do
         valor estimado do orçamento. Se o tipo de área ainda não foi informado,
         a tool avisa que é preciso qualificar o lead antes."""
-        if budget_given:
-            return (
-                'O valor médio já foi informado a este cliente nesta conversa. '
-                'NÃO repita o número: apenas relembre que já passou a média e '
-                'siga para o encaminhamento ao especialista.'
-            )
-
         value = BUDGET_BY_AREA.get(lead.area_type)
         if value is None:
             return (
