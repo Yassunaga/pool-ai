@@ -6,9 +6,10 @@ from langchain_core.messages import AIMessage, SystemMessage
 from .guardrail import MAX_CHUNK_LEN, Violations, detect, sanitize
 from .llm import get_llm
 from .models import ChunkedReply, ConversationState, Lead
-from .prompts import AGENT_PROMPT, EXTRACTOR_PROMPT, REGEN_PROMPT
+
+from .prompts import AGENT_PROMPT, EXTRACTOR_PROMPT, REGEN_PROMPT, GREETING_INSTRUCTION
+
 from .tools import (
-    greeting_instructions,
     make_build_budget,
     make_retrieve_lead_information,
 )
@@ -34,9 +35,10 @@ def agent(state: ConversationState) -> dict:
     """Atendente flexível: lê o histórico + lead e responde naturalmente.
 
     Sem scripts; o LLM conduz a conversa guiado por persona/regras/fluxo e pode
-    chamar tools (ex.: `greeting_instructions` para saber como abrir a conversa).
-    Recebe o `lead` já extraído como contexto para não repetir perguntas e
-    adequar a fala ao caso (urbano x rural).
+    chamar tools (ex.: `build_budget` para o valor médio do orçamento). Recebe o
+    `lead` já extraído como contexto para não repetir perguntas e adequar a fala
+    ao caso (urbano x rural). No primeiro contato a saudação de abertura é
+    injetada direto no system prompt (não depende de tool call).
 
     Roda um loop ReAct interno (create_agent); só a resposta final volta ao
     estado — as mensagens intermediárias de tool ficam no contexto isolado.
@@ -54,10 +56,15 @@ def agent(state: ConversationState) -> dict:
         handoff_status='já solicitado' if state.handoff_requested else 'ainda não solicitado',
         budget_status='já informado' if state.budget_given else 'ainda não informado',
     )
+
+    # Primeiro contato (conversa nova): injeta a saudação de abertura no prompt em
+    # vez de depender de uma tool call que o modelo pode esquecer de chamar.
+    if len(state.messages) == 1:
+        system = f'{system}\n\n{GREETING_INSTRUCTION}'
+
     runnable = create_agent(
         model=get_llm(temperature=0.3),
         tools=[
-            greeting_instructions,
             make_retrieve_lead_information(state.lead),
             make_build_budget(state.lead, state.budget_given),
         ],
