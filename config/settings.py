@@ -127,6 +127,14 @@ STATIC_URL = 'static/'
 OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
 OPENROUTER_BASE_URL = os.environ.get('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1')
 OPENROUTER_MODEL = os.environ.get('OPENROUTER_MODEL', 'anthropic/claude-sonnet-4-6')
+# Modelo multimodal para transcrever áudio do WhatsApp (POOL-16). O modelo padrão
+# (Claude) aceita imagem mas NÃO áudio, então a transcrição usa um modelo próprio.
+OPENROUTER_TRANSCRIBE_MODEL = os.environ.get(
+    'OPENROUTER_TRANSCRIBE_MODEL', 'google/gemini-2.0-flash-001'
+)
+# Modelo para interpretar imagem. Por padrão reusa o modelo principal (Claude já
+# aceita imagem); sobrescreva se quiser um modelo de visão dedicado.
+OPENROUTER_VISION_MODEL = os.environ.get('OPENROUTER_VISION_MODEL', OPENROUTER_MODEL)
 LANGGRAPH_DB_PATH = str(BASE_DIR / 'langgraph_state.sqlite')
 
 # Evolution API (WhatsApp)
